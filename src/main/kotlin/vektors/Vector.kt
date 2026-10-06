@@ -40,16 +40,21 @@ class Vector private constructor(
 
     infix fun dot(other: Vector): Float {
         requireMatchSize(other)
-        return FloatArray(size) { this[it] * other[it] }.sum()
+        var sum = 0f
+        for (i in 0 until size) {
+            sum += this[i] * other[i]
+        }
+        return sum
     }
 
     fun distanceTo(other: Vector) = (this - other).magnitude()
 
     fun angleTo(other: Vector): Float {
-        require(magnitude() > 0 && other.magnitude() > 0) { "Cannot compute angle to or from a zero vector" }
-        return acos(
-            (this dot other) / (this.magnitude() * other.magnitude())
-        )
+        val thisMag = magnitude()
+        val otherMag = other.magnitude()
+        require(thisMag > 0 && otherMag > 0) { "Cannot compute angle to or from a zero vector" }
+        val cosine = ((this dot other) / (thisMag * otherMag)).coerceIn(-1f, 1f)
+        return acos(cosine)
     }
 
     fun projected(onto: Vector) =
