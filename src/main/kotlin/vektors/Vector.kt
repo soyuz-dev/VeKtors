@@ -45,10 +45,12 @@ class Vector private constructor(
 
     fun distanceTo(other: Vector) = (this - other).magnitude()
 
-    fun angleTo(other: Vector) =
-        acos(
+    fun angleTo(other: Vector): Float {
+        require(magnitude() > 0 && other.magnitude() > 0) { "Cannot compute angle to or from a zero vector" }
+        return acos(
             (this dot other) / (this.magnitude() * other.magnitude())
         )
+    }
 
     fun projected(onto: Vector) =
         onto * (this dot onto) / onto.magnitudeSquared()
