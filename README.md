@@ -1,4 +1,4 @@
-# VeKtors
+# VeKtors v0.2-alpha
 
 A small, Kotlin-first numerical computing library for vectors, matrices, tensors, and related numerical operations.
 
