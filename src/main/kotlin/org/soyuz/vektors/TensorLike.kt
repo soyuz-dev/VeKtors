@@ -15,27 +15,25 @@ interface TensorLike {
 
     fun getFlat(index: Int): Float
 
-    operator fun plus(other: TensorLike): Tensor {
-        requireMatchShape(other)
+    operator fun plus(other: TensorLike): Tensor =
+        elementwise(other) { a, b ->
+            a + b
+        }
 
-        return Tensor.fromFlat(
-            shape,
-            FloatArray(size) {
-                getFlat(it) + other.getFlat(it)
-            }
-        )
-    }
+    operator fun minus(other: TensorLike): Tensor =
+        elementwise(other) { a, b ->
+            a - b
+        }
 
-    operator fun minus(other: TensorLike): Tensor {
-        requireMatchShape(other)
+    operator fun times(other: TensorLike): Tensor =
+        elementwise(other) { a, b ->
+            a * b
+        }
 
-        return Tensor.fromFlat(
-            shape,
-            FloatArray(size) {
-                getFlat(it) - other.getFlat(it)
-            }
-        )
-    }
+    operator fun div(other: TensorLike): Tensor =
+        elementwise(other) { a, b ->
+            a / b
+        }
 
     operator fun times(other: Float): Tensor =
         Tensor.fromFlat(
@@ -124,8 +122,65 @@ interface TensorLike {
         )
     }
 
-    private fun requireMatchShape(other: TensorLike) =
-        require(shape == other.shape) {
-            "Tensor shapes must match: $shape != ${other.shape}"
+    private fun broadcastShape(
+        first: List<Int>,
+        second: List<Int>,
+    ): List<Int> {
+        val rank = maxOf(first.size, second.size)
+
+        return List(rank) { i ->
+            val firstIndex = first.size - rank + i
+            val secondIndex = second.size - rank + i
+
+            val a =
+                if (firstIndex >= 0) first[firstIndex]
+                else 1
+
+            val b =
+                if (secondIndex >= 0) second[secondIndex]
+                else 1
+
+            require(a == b || a == 1 || b == 1) {
+                "Cannot broadcast shapes $first and $second"
+            }
+
+            maxOf(a, b)
         }
+    }
+
+    private fun broadcastIndices(
+        indices: IntArray,
+        shape: List<Int>,
+    ): IntArray {
+        val offset = indices.size - shape.size
+
+        return IntArray(shape.size) { dimension ->
+            if (shape[dimension] == 1) {
+                0
+            } else {
+                indices[dimension + offset]
+            }
+        }
+    }
+
+    private fun elementwise(
+        other: TensorLike,
+        operation: (Float, Float) -> Float,
+    ): Tensor {
+        val resultShape = broadcastShape(shape, other.shape)
+
+        return Tensor(resultShape) { indices ->
+            val leftIndices =
+                broadcastIndices(indices, shape)
+
+            val rightIndices =
+                broadcastIndices(indices, other.shape)
+
+            operation(
+                get(*leftIndices),
+                other.get(*rightIndices),
+            )
+        }
+    }
+
 }

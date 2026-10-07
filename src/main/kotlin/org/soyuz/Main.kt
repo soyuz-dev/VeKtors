@@ -59,4 +59,21 @@ fun main() {
 
         println()
     }
+
+    val a = Tensor(2, 3) { (row, column) ->
+        (row * 10 + column).toFloat()
+    }
+
+    val b = Tensor(3) { (column) ->
+        (column + 1).toFloat()
+    }
+
+    val c = a + b
+
+    for (row in 0 until 2) {
+        for (column in 0 until 3) {
+            print("${c[row, column]} ")
+        }
+        println()
+    }
 }
