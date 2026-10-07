@@ -235,4 +235,58 @@ class MutableTensor private constructor(
             return indices
         }
     }
+
+    override fun slice(vararg slices: Slice): MutableTensor {
+        require(slices.size <= rank) {
+            "Expected at most $rank slices, got ${slices.size}"
+        }
+
+        var newOffset = offset
+
+        val newShape = MutableList(rank) { 0 }
+        val newStrides = MutableList(rank) { 0 }
+
+        for (dimension in 0 until rank) {
+            val slice =
+                if (dimension < slices.size) {
+                    slices[dimension]
+                } else {
+                    Slice()
+                }
+
+            val dimensionSize = shape[dimension]
+            val end = slice.end ?: dimensionSize
+
+            require(slice.start in 0..dimensionSize) {
+                "Slice start ${slice.start} is out of bounds for dimension $dimension"
+            }
+
+            require(end in 0..dimensionSize) {
+                "Slice end $end is out of bounds for dimension $dimension"
+            }
+
+            require(slice.start <= end) {
+                "Slice start ${slice.start} must not be greater than end $end"
+            }
+
+            val resultSize =
+                (end - slice.start + slice.step - 1) / slice.step
+
+            require(resultSize > 0) {
+                "Empty tensor slices are not currently supported"
+            }
+
+            newOffset += slice.start * strides[dimension]
+            newShape[dimension] = resultSize
+            newStrides[dimension] =
+                strides[dimension] * slice.step
+        }
+
+        return MutableTensor(
+            data = data,
+            shape = newShape,
+            strides = newStrides,
+            offset = newOffset,
+        )
+    }
 }

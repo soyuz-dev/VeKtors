@@ -11,8 +11,7 @@ interface TensorLike {
             acc * dimension
         }
 
-    operator fun get(index: Int): TensorLike =
-        select(0, index)
+    operator fun get(index: Int): TensorLike
 
     fun valueAt(vararg indices: Int): Float {
         require(indices.size == rank) {
@@ -111,58 +110,7 @@ interface TensorLike {
         )
     }
 
-    fun slice(vararg slices: Slice): Tensor {
-        require(slices.size <= rank) {
-            "Expected at most $rank slices, got ${slices.size}"
-        }
-
-        val resolved = List(rank) { dimension ->
-            val slice =
-                if (dimension < slices.size) {
-                    slices[dimension]
-                } else {
-                    Slice()
-                }
-
-            val dimensionSize = shape[dimension]
-            val end = slice.end ?: dimensionSize
-
-            require(slice.start in 0..dimensionSize) {
-                "Slice start ${slice.start} is out of bounds for dimension $dimension"
-            }
-
-            require(end in 0..dimensionSize) {
-                "Slice end $end is out of bounds for dimension $dimension"
-            }
-
-            require(slice.start <= end) {
-                "Slice start ${slice.start} must not be greater than end $end"
-            }
-
-            ResolvedSlice(
-                slice.start,
-                end,
-                slice.step,
-            )
-        }
-
-        val resultShape = resolved.map {
-            (it.end - it.start + it.step - 1) / it.step
-        }
-
-        require(resultShape.all { it > 0 }) {
-            "Empty tensor slices are not currently supported"
-        }
-
-        return Tensor(resultShape) { indices ->
-            val sourceIndices = IntArray(rank) { dimension ->
-                resolved[dimension].start +
-                        indices[dimension] * resolved[dimension].step
-            }
-
-            valueAt(*sourceIndices)
-        }
-    }
+    fun slice(vararg slices: Slice): TensorLike
 
     fun select(dimension: Int, index: Int): Tensor {
         require(rank > 0) {

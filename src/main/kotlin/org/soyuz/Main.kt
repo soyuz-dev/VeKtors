@@ -2,6 +2,7 @@ package org.soyuz
 
 import org.soyuz.vektors.MutableTensor
 import org.soyuz.vektors.Tensor
+import org.soyuz.vektors.Slice
 import kotlin.math.sqrt
 
 private const val DEPTH = 21
@@ -147,4 +148,78 @@ fun main() {
 
     println(scalarView.valueAt())
     println(viewTest.valueAt(1, 2))
+
+    println("=== Mutable slice view ===")
+
+    val sliceTest = MutableTensor(6, 4) { (row, column) ->
+        (row * 10 + column).toFloat()
+    }
+
+    val sliceView = sliceTest.slice(
+        Slice(1, 6, 2),
+        Slice(1, 4),
+    )
+
+    println("Shape: ${sliceView.shape}")
+
+    for (row in 0 until sliceView.shape[0]) {
+        for (column in 0 until sliceView.shape[1]) {
+            print("${sliceView.valueAt(row, column)} ")
+        }
+
+        println()
+    }
+
+    sliceView *= 10f
+
+    println()
+    println("After mutating view:")
+
+    for (row in 0 until 6) {
+        for (column in 0 until 4) {
+            print("${sliceTest.valueAt(row, column)} ")
+        }
+
+        println()
+    }
+
+    val newScalarView =
+        sliceTest
+            .slice(
+                Slice(1, 6, 2),
+                Slice(1, 4),
+            )[1][2]
+
+    println(newScalarView.shape)
+    println(newScalarView.valueAt())
+
+    newScalarView *= 2f
+
+    println(sliceTest.valueAt(3, 3))
+
+    val tensor = Tensor(6, 4) { (row, column) ->
+        (row * 10 + column).toFloat()
+    }
+
+    val view = tensor.slice(
+        Slice(1, 6, 2),
+        Slice(1, 4),
+    )
+
+    println(view.shape)
+
+    for (row in 0 until view.shape[0]) {
+        for (column in 0 until view.shape[1]) {
+            print("${view.valueAt(row, column)} ")
+        }
+
+        println()
+    }
+
+    val newRow = view[1]
+    val newScalar = newRow[2]
+
+    println("Row shape: ${newRow.shape}")
+    println("Scalar shape: ${newScalar.shape}")
+    println("Scalar: ${newScalar.valueAt()}")
 }
