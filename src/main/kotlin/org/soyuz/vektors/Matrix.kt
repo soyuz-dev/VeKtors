@@ -10,6 +10,31 @@ class Matrix private constructor(
         data[row * columns + column]
 
     companion object {
+        operator fun invoke(
+            rows: Int,
+            columns: Int,
+            init: (Int, Int) -> Float,
+        ): Matrix {
+            require(rows > 0) {
+                "Matrix must have at least one row"
+            }
+
+            require(columns > 0) {
+                "Matrix must have at least one column"
+            }
+
+            return Matrix(
+                data = FloatArray(rows * columns) { index ->
+                    init(
+                        index / columns,
+                        index % columns,
+                    )
+                },
+                rows = rows,
+                columns = columns,
+            )
+        }
+
         operator fun invoke(vararg rows: FloatArray): Matrix {
             require(rows.isNotEmpty()) {
                 "Matrix cannot be empty"
@@ -39,7 +64,7 @@ class Matrix private constructor(
                 FloatArray(other.rows * other.columns) { index ->
                     other[
                         index / other.columns,
-                        index % other.columns
+                        index % other.columns,
                     ]
                 },
                 other.rows,

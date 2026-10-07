@@ -113,4 +113,18 @@ interface MatrixLike {
             "Matrix dimensions must match: " +
                     "${rows}x$columns != ${other.rows}x${other.columns}"
         }
+
+    fun trace(): Float {
+        require(rows == columns) {
+            "Trace is only defined for square matrices"
+        }
+
+        var trace = 0f
+
+        for (i in 0 until rows) {
+            trace += this[i, i]
+        }
+
+        return trace
+    }
 }
