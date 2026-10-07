@@ -1,5 +1,7 @@
 package org.soyuz.vektors
 
+
+
 class Tensor private constructor(
     private val data: FloatArray,
     shape: List<Int>,
@@ -40,54 +42,94 @@ class Tensor private constructor(
         return data[dataIndex(index)]
     }
 
-    override fun slice(vararg slices: Slice): Tensor {
-        require(slices.size <= rank) {
-            "Expected at most $rank slices, got ${slices.size}"
+    override operator fun get(
+        vararg indices: TensorIndex,
+    ): Tensor {
+        require(indices.size <= rank) {
+            "Expected at most $rank indices, got ${indices.size}"
         }
 
         var newOffset = offset
-
-        val newShape = MutableList(rank) { 0 }
-        val newStrides = MutableList(rank) { 0 }
+        val newShape = mutableListOf<Int>()
+        val newStrides = mutableListOf<Int>()
 
         for (dimension in 0 until rank) {
-            val slice =
-                if (dimension < slices.size) {
-                    slices[dimension]
-                } else {
-                    Slice()
-                }
+            val index =
+                indices.getOrElse(dimension) { All }
 
             val dimensionSize = shape[dimension]
-            val end = slice.end ?: dimensionSize
 
-            require(slice.start in 0..dimensionSize) {
-                "Slice start ${slice.start} is out of bounds for dimension $dimension"
+            when (index) {
+                All -> {
+                    newShape += dimensionSize
+                    newStrides += strides[dimension]
+                }
+
+                is Index -> {
+                    require(index.value in 0 until dimensionSize) {
+                        "Index ${index.value} is out of bounds for dimension $dimension with size $dimensionSize"
+                    }
+
+                    newOffset +=
+                        index.value * strides[dimension]
+                }
+
+                is Range -> {
+                    require(!index.value.isEmpty()) {
+                        "Range must not be empty"
+                    }
+
+                    val start = index.value.first
+                    val end = index.value.last
+
+                    require(start >= 0 && end < dimensionSize) {
+                        "Range ${index.value} is out of bounds for dimension $dimension with size $dimensionSize"
+                    }
+
+                    newOffset +=
+                        start * strides[dimension]
+
+                    newShape +=
+                        end - start + 1
+
+                    newStrides +=
+                        strides[dimension]
+                }
+
+                is Slice -> {
+                    val end =
+                        index.end ?: dimensionSize
+
+                    require(index.start in 0..dimensionSize) {
+                        "Slice start ${index.start} is out of bounds for dimension $dimension"
+                    }
+
+                    require(end in 0..dimensionSize) {
+                        "Slice end $end is out of bounds for dimension $dimension"
+                    }
+
+                    require(index.start <= end) {
+                        "Slice start ${index.start} must not be greater than end $end"
+                    }
+
+                    val resultSize =
+                        (end - index.start + index.step - 1) /
+                                index.step
+
+                    require(resultSize > 0) {
+                        "Empty tensor slices are not currently supported"
+                    }
+
+                    newOffset +=
+                        index.start * strides[dimension]
+
+                    newShape +=
+                        resultSize
+
+                    newStrides +=
+                        strides[dimension] * index.step
+                }
             }
-
-            require(end in 0..dimensionSize) {
-                "Slice end $end is out of bounds for dimension $dimension"
-            }
-
-            require(slice.start <= end) {
-                "Slice start ${slice.start} must not be greater than end $end"
-            }
-
-            val resultSize =
-                (end - slice.start + slice.step - 1) / slice.step
-
-            require(resultSize > 0) {
-                "Empty tensor slices are not currently supported"
-            }
-
-            newOffset +=
-                slice.start * strides[dimension]
-
-            newShape[dimension] =
-                resultSize
-
-            newStrides[dimension] =
-                strides[dimension] * slice.step
         }
 
         return Tensor(

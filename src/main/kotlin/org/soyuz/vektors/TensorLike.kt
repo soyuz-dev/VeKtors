@@ -15,6 +15,8 @@ interface TensorLike {
 
     operator fun get(index: Int): TensorLike
 
+    operator fun get(vararg indices: TensorIndex): TensorLike
+
     fun valueAt(vararg indices: Int): Float {
         require(indices.size == rank) {
             "Expected $rank indices, got ${indices.size}"
@@ -112,8 +114,6 @@ interface TensorLike {
         )
     }
 
-    fun slice(vararg slices: Slice): TensorLike
-
     fun select(dimension: Int, index: Int): Tensor {
         require(rank > 0) {
             "Cannot select from a scalar tensor"
@@ -131,20 +131,30 @@ interface TensorLike {
             i != dimension
         }
 
-        return Tensor(resultShape) { indices ->
-            val sourceIndices = IntArray(rank)
-            var resultDimension = 0
+        return if (resultShape.isEmpty()) {
+            Tensor.scalar(
+                valueAt(
+                    *IntArray(rank) { sourceDimension ->
+                        if (sourceDimension == dimension) index else 0
+                    },
+                ),
+            )
+        } else {
+            Tensor(resultShape) { indices ->
+                val sourceIndices = IntArray(rank)
+                var resultDimension = 0
 
-            for (sourceDimension in 0 until rank) {
-                sourceIndices[sourceDimension] =
-                    if (sourceDimension == dimension) {
-                        index
-                    } else {
-                        indices[resultDimension++]
-                    }
+                for (sourceDimension in 0 until rank) {
+                    sourceIndices[sourceDimension] =
+                        if (sourceDimension == dimension) {
+                            index
+                        } else {
+                            indices[resultDimension++]
+                        }
+                }
+
+                valueAt(*sourceIndices)
             }
-
-            valueAt(*sourceIndices)
         }
     }
 
@@ -221,10 +231,4 @@ interface TensorLike {
             }
         }
     }
-
-    private data class ResolvedSlice(
-        val start: Int,
-        val end: Int,
-        val step: Int,
-    )
 }
