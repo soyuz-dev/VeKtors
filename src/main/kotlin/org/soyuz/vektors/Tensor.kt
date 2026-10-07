@@ -16,30 +16,6 @@ class Tensor private constructor(
         return data[index]
     }
 
-    override operator fun get(vararg indices: Int): Float =
-        data[flatIndex(indices)]
-
-    private fun flatIndex(indices: IntArray): Int {
-        require(indices.size == rank) {
-            "Expected $rank indices, got ${indices.size}"
-        }
-
-        var index = 0
-        var stride = 1
-
-        for (dimension in rank - 1 downTo 0) {
-            require(indices[dimension] in 0 until shape[dimension]) {
-                "Index ${indices[dimension]} out of bounds " +
-                        "for dimension $dimension with size ${shape[dimension]}"
-            }
-
-            index += indices[dimension] * stride
-            stride *= shape[dimension]
-        }
-
-        return index
-    }
-
     companion object {
         operator fun invoke(
             shape: List<Int>,
@@ -68,7 +44,13 @@ class Tensor private constructor(
                 other.shape,
                 FloatArray(other.size) {
                     other.getFlat(it)
-                }
+                },
+            )
+
+        fun scalar(value: Float): Tensor =
+            fromFlat(
+                emptyList(),
+                floatArrayOf(value),
             )
 
         internal fun fromFlat(
@@ -90,10 +72,6 @@ class Tensor private constructor(
         }
 
         private fun requireShape(shape: List<Int>) {
-            require(shape.isNotEmpty()) {
-                "Tensor must have at least one dimension"
-            }
-
             require(shape.all { it > 0 }) {
                 "Tensor dimensions must be positive"
             }

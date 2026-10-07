@@ -11,44 +11,41 @@ interface TensorLike {
             acc * dimension
         }
 
-    operator fun get(vararg indices: Int): Float
+    operator fun get(index: Int): TensorLike =
+        select(0, index)
+
+    fun valueAt(vararg indices: Int): Float {
+        require(indices.size == rank) {
+            "Expected $rank indices, got ${indices.size}"
+        }
+
+        return getFlat(flatIndex(indices))
+    }
 
     fun getFlat(index: Int): Float
 
     operator fun plus(other: TensorLike): Tensor =
-        elementwise(other) { a, b ->
-            a + b
-        }
+        elementwise(other) { a, b -> a + b }
 
     operator fun minus(other: TensorLike): Tensor =
-        elementwise(other) { a, b ->
-            a - b
-        }
+        elementwise(other) { a, b -> a - b }
 
     operator fun times(other: TensorLike): Tensor =
-        elementwise(other) { a, b ->
-            a * b
-        }
+        elementwise(other) { a, b -> a * b }
 
     operator fun div(other: TensorLike): Tensor =
-        elementwise(other) { a, b ->
-            a / b
-        }
+        elementwise(other) { a, b -> a / b }
 
-    operator fun times(other: Float): Tensor =
+    operator fun times(scalar: Float): Tensor =
         Tensor.fromFlat(
             shape,
-            FloatArray(size) {
-                getFlat(it) * other
-            }
+            FloatArray(size) { getFlat(it) * scalar },
         )
 
-    operator fun div(other: Float): Tensor =
+    operator fun div(scalar: Float): Tensor =
         Tensor.fromFlat(
             shape,
-            FloatArray(size) {
-                getFlat(it) / other
-            }
+            FloatArray(size) { getFlat(it) / scalar },
         )
 
     fun sum(): Float {
@@ -65,61 +62,171 @@ interface TensorLike {
         sum() / size
 
     fun min(): Float {
-        var min = getFlat(0)
+        var minimum = getFlat(0)
 
         for (i in 1 until size) {
-            if (getFlat(i) < min) {
-                min = getFlat(i)
+            if (getFlat(i) < minimum) {
+                minimum = getFlat(i)
             }
         }
 
-        return min
+        return minimum
     }
 
     fun max(): Float {
-        var max = getFlat(0)
+        var maximum = getFlat(0)
 
         for (i in 1 until size) {
-            if (getFlat(i) > max) {
-                max = getFlat(i)
+            if (getFlat(i) > maximum) {
+                maximum = getFlat(i)
             }
         }
 
-        return max
+        return maximum
     }
 
     fun map(transform: (Float) -> Float): Tensor =
         Tensor.fromFlat(
             shape,
-            FloatArray(size) {
-                transform(getFlat(it))
-            }
+            FloatArray(size) { transform(getFlat(it)) },
         )
 
     fun reshape(vararg shape: Int): Tensor {
-        require(shape.isNotEmpty()) {
-            "Tensor must have at least one dimension"
-        }
-
         require(shape.all { it > 0 }) {
             "Tensor dimensions must be positive"
         }
 
-        val newSize =
-            shape.fold(1) { acc, dimension ->
-                acc * dimension
-            }
+        val newShape = shape.toList()
+        val newSize = newShape.fold(1) { acc, dimension ->
+            acc * dimension
+        }
 
         require(newSize == size) {
-            "Cannot reshape tensor of size $size to shape ${shape.asList()}"
+            "Cannot reshape tensor of size $size into shape $newShape"
         }
 
         return Tensor.fromFlat(
-            shape.asList(),
-            FloatArray(size) {
-                getFlat(it)
-            }
+            newShape,
+            FloatArray(size) { getFlat(it) },
         )
+    }
+
+    fun slice(vararg slices: Slice): Tensor {
+        require(slices.size <= rank) {
+            "Expected at most $rank slices, got ${slices.size}"
+        }
+
+        val resolved = List(rank) { dimension ->
+            val slice =
+                if (dimension < slices.size) {
+                    slices[dimension]
+                } else {
+                    Slice()
+                }
+
+            val dimensionSize = shape[dimension]
+            val end = slice.end ?: dimensionSize
+
+            require(slice.start in 0..dimensionSize) {
+                "Slice start ${slice.start} is out of bounds for dimension $dimension"
+            }
+
+            require(end in 0..dimensionSize) {
+                "Slice end $end is out of bounds for dimension $dimension"
+            }
+
+            require(slice.start <= end) {
+                "Slice start ${slice.start} must not be greater than end $end"
+            }
+
+            ResolvedSlice(
+                slice.start,
+                end,
+                slice.step,
+            )
+        }
+
+        val resultShape = resolved.map {
+            (it.end - it.start + it.step - 1) / it.step
+        }
+
+        require(resultShape.all { it > 0 }) {
+            "Empty tensor slices are not currently supported"
+        }
+
+        return Tensor(resultShape) { indices ->
+            val sourceIndices = IntArray(rank) { dimension ->
+                resolved[dimension].start +
+                        indices[dimension] * resolved[dimension].step
+            }
+
+            valueAt(*sourceIndices)
+        }
+    }
+
+    fun select(dimension: Int, index: Int): Tensor {
+        require(rank > 0) {
+            "Cannot select from a scalar tensor"
+        }
+
+        require(dimension in 0 until rank) {
+            "Dimension $dimension is out of bounds for tensor of rank $rank"
+        }
+
+        require(index in 0 until shape[dimension]) {
+            "Index $index is out of bounds for dimension $dimension with size ${shape[dimension]}"
+        }
+
+        val resultShape = shape.filterIndexed { i, _ ->
+            i != dimension
+        }
+
+        return Tensor(resultShape) { indices ->
+            val sourceIndices = IntArray(rank)
+            var resultDimension = 0
+
+            for (sourceDimension in 0 until rank) {
+                sourceIndices[sourceDimension] =
+                    if (sourceDimension == dimension) {
+                        index
+                    } else {
+                        indices[resultDimension++]
+                    }
+            }
+
+            valueAt(*sourceIndices)
+        }
+    }
+
+    private fun elementwise(
+        other: TensorLike,
+        operation: (Float, Float) -> Float,
+    ): Tensor {
+        val resultShape = broadcastShape(shape, other.shape)
+
+        return Tensor(resultShape) { indices ->
+            operation(
+                valueAt(*broadcastIndices(indices, shape)),
+                other.valueAt(*broadcastIndices(indices, other.shape)),
+            )
+        }
+    }
+
+    private fun flatIndex(indices: IntArray): Int {
+        var index = 0
+        var stride = 1
+
+        for (dimension in rank - 1 downTo 0) {
+            require(indices[dimension] in 0 until shape[dimension]) {
+                "Index ${indices[dimension]} out of bounds " +
+                        "for dimension $dimension with size ${shape[dimension]}"
+            }
+
+            index += indices[dimension] * stride
+            stride *= shape[dimension]
+        }
+
+        return index
     }
 
     private fun broadcastShape(
@@ -163,127 +270,9 @@ interface TensorLike {
         }
     }
 
-    private fun elementwise(
-        other: TensorLike,
-        operation: (Float, Float) -> Float,
-    ): Tensor {
-        val resultShape = broadcastShape(shape, other.shape)
-
-        return Tensor(resultShape) { indices ->
-            val leftIndices =
-                broadcastIndices(indices, shape)
-
-            val rightIndices =
-                broadcastIndices(indices, other.shape)
-
-            operation(
-                get(*leftIndices),
-                other.get(*rightIndices),
-            )
-        }
-    }
-
-    fun slice(vararg slices: Slice): Tensor {
-        require(slices.size <= rank) {
-            "Expected at most $rank slices, got ${slices.size}"
-        }
-
-        val resolved = List(rank) { dimension ->
-            val slice =
-                slices.getOrNull(dimension) ?: Slice()
-
-            val end =
-                slice.end ?: shape[dimension]
-
-            require(slice.start in 0..shape[dimension]) {
-                "Slice start ${slice.start} out of bounds for dimension $dimension"
-            }
-
-            require(end in 0..shape[dimension]) {
-                "Slice end $end out of bounds for dimension $dimension"
-            }
-
-            require(slice.start <= end) {
-                "Slice start must not exceed end"
-            }
-
-            ResolvedSlice(
-                slice.start,
-                end,
-                slice.step,
-            )
-        }
-
-        val resultShape = resolved.map {
-            if (it.start == it.end) {
-                0
-            } else {
-                (it.end - it.start + it.step - 1) / it.step
-            }
-        }
-
-        require(resultShape.all { it > 0 }) {
-            "Slices cannot produce an empty tensor"
-        }
-
-        return Tensor(resultShape) { resultIndices ->
-            val sourceIndices =
-                IntArray(rank) { dimension ->
-                    val slice = resolved[dimension]
-
-                    slice.start +
-                            resultIndices[dimension] * slice.step
-                }
-
-            get(*sourceIndices)
-        }
-    }
-
     private data class ResolvedSlice(
         val start: Int,
         val end: Int,
         val step: Int,
     )
-
-    fun select(
-        dimension: Int,
-        index: Int,
-    ): Tensor {
-        require(dimension in 0 until rank) {
-            "Dimension out of bounds: $dimension"
-        }
-
-        require(index in 0 until shape[dimension]) {
-            "Index $index out of bounds for dimension $dimension"
-        }
-
-        val resultShape =
-            shape.filterIndexed { i, _ ->
-                i != dimension
-            }
-
-        require(resultShape.isNotEmpty()) {
-            "Cannot select the only dimension of a tensor"
-        }
-
-        return Tensor(resultShape) { resultIndices ->
-            val sourceIndices = IntArray(rank)
-
-            var resultDimension = 0
-
-            for (sourceDimension in 0 until rank) {
-                if (sourceDimension == dimension) {
-                    sourceIndices[sourceDimension] = index
-                } else {
-                    sourceIndices[sourceDimension] =
-                        resultIndices[resultDimension]
-
-                    resultDimension++
-                }
-            }
-
-            get(*sourceIndices)
-        }
-    }
-
 }

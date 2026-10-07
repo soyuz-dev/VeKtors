@@ -3,90 +3,135 @@ package org.soyuz.vektors
 class MutableTensor private constructor(
     private val data: FloatArray,
     shape: List<Int>,
+    private val strides: List<Int>,
+    private val offset: Int,
 ) : TensorLike {
 
     override val shape: List<Int> =
         shape.toList()
 
+    override operator fun get(index: Int): MutableTensor {
+        require(rank > 0) {
+            "Cannot select from a scalar tensor"
+        }
+
+        require(index in 0 until shape[0]) {
+            "Index $index is out of bounds for dimension 0 with size ${shape[0]}"
+        }
+
+        return MutableTensor(
+            data = data,
+            shape = shape.drop(1),
+            strides = strides.drop(1),
+            offset = offset + index * strides[0],
+        )
+    }
+
     override fun getFlat(index: Int): Float {
-        require(index in data.indices) {
+        require(index in 0 until size) {
             "Flat index out of bounds: $index"
         }
 
-        return data[index]
+        return data[dataIndex(index)]
     }
 
-    override operator fun get(vararg indices: Int): Float =
-        data[flatIndex(indices)]
-
-    operator fun set(
+    fun setValueAt(
         vararg indices: Int,
         value: Float,
     ) {
-        data[flatIndex(indices)] = value
+        data[dataIndex(indices)] = value
     }
 
     fun setFlat(index: Int, value: Float) {
-        require(index in data.indices) {
+        require(index in 0 until size) {
             "Flat index out of bounds: $index"
         }
 
-        data[index] = value
+        data[dataIndex(index)] = value
     }
 
     operator fun plusAssign(other: TensorLike) {
         requireMatchShape(other)
 
-        for (i in data.indices) {
-            data[i] += other.getFlat(i)
+        for (i in 0 until size) {
+            setFlat(
+                i,
+                getFlat(i) + other.getFlat(i),
+            )
         }
     }
 
     operator fun minusAssign(other: TensorLike) {
         requireMatchShape(other)
 
-        for (i in data.indices) {
-            data[i] -= other.getFlat(i)
+        for (i in 0 until size) {
+            setFlat(
+                i,
+                getFlat(i) - other.getFlat(i),
+            )
         }
     }
 
     operator fun timesAssign(other: Float) {
-        for (i in data.indices) {
-            data[i] *= other
+        for (i in 0 until size) {
+            setFlat(
+                i,
+                getFlat(i) * other,
+            )
         }
     }
 
     operator fun divAssign(other: Float) {
-        for (i in data.indices) {
-            data[i] /= other
+        for (i in 0 until size) {
+            setFlat(
+                i,
+                getFlat(i) / other,
+            )
         }
     }
 
     fun mapInPlace(transform: (Float) -> Float) {
-        for (i in data.indices) {
-            data[i] = transform(data[i])
+        for (i in 0 until size) {
+            setFlat(
+                i,
+                transform(getFlat(i)),
+            )
         }
     }
 
     fun toTensor(): Tensor =
         Tensor(this)
 
-    private fun flatIndex(indices: IntArray): Int {
+    private fun dataIndex(indices: IntArray): Int {
         require(indices.size == rank) {
             "Expected $rank indices, got ${indices.size}"
         }
 
-        var index = 0
-        var stride = 1
+        var index = offset
 
-        for (dimension in rank - 1 downTo 0) {
+        for (dimension in 0 until rank) {
             require(indices[dimension] in 0 until shape[dimension]) {
                 "Index ${indices[dimension]} out of bounds " +
                         "for dimension $dimension with size ${shape[dimension]}"
             }
 
-            index += indices[dimension] * stride
-            stride *= shape[dimension]
+            index += indices[dimension] * strides[dimension]
+        }
+
+        return index
+    }
+
+    private fun dataIndex(flatIndex: Int): Int {
+        var remainder = flatIndex
+        var index = offset
+
+        for (dimension in rank - 1 downTo 0) {
+            val coordinate =
+                remainder % shape[dimension]
+
+            remainder /= shape[dimension]
+
+            index += coordinate * strides[dimension]
         }
 
         return index
@@ -111,7 +156,12 @@ class MutableTensor private constructor(
                     init(indicesOf(flatIndex, shape))
             }
 
-            return MutableTensor(data, shape)
+            return MutableTensor(
+                data = data,
+                shape = shape,
+                strides = contiguousStrides(shape),
+                offset = 0,
+            )
         }
 
         operator fun invoke(
@@ -122,19 +172,28 @@ class MutableTensor private constructor(
 
         operator fun invoke(
             other: TensorLike,
-        ): MutableTensor =
+        ): MutableTensor {
+            val data = FloatArray(other.size) {
+                other.getFlat(it)
+            }
+
+            return MutableTensor(
+                data = data,
+                shape = other.shape,
+                strides = contiguousStrides(other.shape),
+                offset = 0,
+            )
+        }
+
+        fun scalar(value: Float): MutableTensor =
             MutableTensor(
-                FloatArray(other.size) {
-                    other.getFlat(it)
-                },
-                other.shape,
+                data = floatArrayOf(value),
+                shape = emptyList(),
+                strides = emptyList(),
+                offset = 0,
             )
 
         private fun requireShape(shape: List<Int>) {
-            require(shape.isNotEmpty()) {
-                "Tensor must have at least one dimension"
-            }
-
             require(shape.all { it > 0 }) {
                 "Tensor dimensions must be positive"
             }
@@ -144,6 +203,20 @@ class MutableTensor private constructor(
             shape.fold(1) { acc, dimension ->
                 acc * dimension
             }
+
+        private fun contiguousStrides(
+            shape: List<Int>,
+        ): List<Int> {
+            var stride = 1
+            val strides = MutableList(shape.size) { 0 }
+
+            for (dimension in shape.size - 1 downTo 0) {
+                strides[dimension] = stride
+                stride *= shape[dimension]
+            }
+
+            return strides
+        }
 
         private fun indicesOf(
             flatIndex: Int,

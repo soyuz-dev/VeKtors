@@ -41,7 +41,7 @@ fun main() {
 
         for (y in 0 until HEIGHT) {
             for (x in 0 until WIDTH) {
-                val value = result[z, y, x]
+                val value = result.valueAt(z, y, x)
 
                 val char = when {
                     value > 2.5f -> '█'
@@ -72,8 +72,79 @@ fun main() {
 
     for (row in 0 until 2) {
         for (column in 0 until 3) {
-            print("${c[row, column]} ")
+            print("${c.valueAt(row, column)} ")
         }
+
         println()
     }
+
+    println()
+
+    // New indexing semantics.
+    println("a.shape = ${a.shape}")
+    println("a[0].shape = ${a[0].shape}")
+    println("a[0][1].shape = ${a[0][1].shape}")
+
+    println("a[0].sum() = ${a[0].sum()}")
+    println("a[1].sum() = ${a[1].sum()}")
+
+    println("a.valueAt(1, 2) = ${a.valueAt(1, 2)}")
+    println("a[1][2].valueAt() = ${a[1][2].valueAt()}")
+
+    println()
+
+    // Explicit scalar tensor.
+    val scalar = Tensor.scalar(42f)
+
+    println("scalar.shape = ${scalar.shape}")
+    println("scalar.rank = ${scalar.rank}")
+    println("scalar.size = ${scalar.size}")
+    println("scalar.valueAt() = ${scalar.valueAt()}")
+    println("scalar.sum() = ${scalar.sum()}")
+
+    println()
+
+    // Mutable scalar access.
+    val mutableTest = MutableTensor(2, 3) { (row, column) ->
+        (row * 10 + column).toFloat()
+    }
+
+    println(
+        "Before: ${mutableTest.valueAt(1, 2)}"
+    )
+
+    mutableTest.setValueAt(
+        1,
+        2,
+        value = 69f,
+    )
+
+    println(
+        "After: ${mutableTest.valueAt(1, 2)}"
+    )
+
+    val viewTest = MutableTensor(2, 3) { (row, column) ->
+        (row * 10 + column).toFloat()
+    }
+
+    val row = viewTest[1]
+
+    println(row.shape)
+    println(row.valueAt(2))
+    println(viewTest.valueAt(1, 2))
+
+    row *= 2f
+
+    println(row.valueAt(2))
+    println(viewTest.valueAt(1, 2))
+
+    val scalarView = viewTest[1][2]
+
+    println(scalarView.shape)
+    println(scalarView.valueAt())
+
+    scalarView *= 10f
+
+    println(scalarView.valueAt())
+    println(viewTest.valueAt(1, 2))
 }
