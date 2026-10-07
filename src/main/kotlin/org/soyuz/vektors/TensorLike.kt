@@ -183,4 +183,107 @@ interface TensorLike {
         }
     }
 
+    fun slice(vararg slices: Slice): Tensor {
+        require(slices.size <= rank) {
+            "Expected at most $rank slices, got ${slices.size}"
+        }
+
+        val resolved = List(rank) { dimension ->
+            val slice =
+                slices.getOrNull(dimension) ?: Slice()
+
+            val end =
+                slice.end ?: shape[dimension]
+
+            require(slice.start in 0..shape[dimension]) {
+                "Slice start ${slice.start} out of bounds for dimension $dimension"
+            }
+
+            require(end in 0..shape[dimension]) {
+                "Slice end $end out of bounds for dimension $dimension"
+            }
+
+            require(slice.start <= end) {
+                "Slice start must not exceed end"
+            }
+
+            ResolvedSlice(
+                slice.start,
+                end,
+                slice.step,
+            )
+        }
+
+        val resultShape = resolved.map {
+            if (it.start == it.end) {
+                0
+            } else {
+                (it.end - it.start + it.step - 1) / it.step
+            }
+        }
+
+        require(resultShape.all { it > 0 }) {
+            "Slices cannot produce an empty tensor"
+        }
+
+        return Tensor(resultShape) { resultIndices ->
+            val sourceIndices =
+                IntArray(rank) { dimension ->
+                    val slice = resolved[dimension]
+
+                    slice.start +
+                            resultIndices[dimension] * slice.step
+                }
+
+            get(*sourceIndices)
+        }
+    }
+
+    private data class ResolvedSlice(
+        val start: Int,
+        val end: Int,
+        val step: Int,
+    )
+
+    fun select(
+        dimension: Int,
+        index: Int,
+    ): Tensor {
+        require(dimension in 0 until rank) {
+            "Dimension out of bounds: $dimension"
+        }
+
+        require(index in 0 until shape[dimension]) {
+            "Index $index out of bounds for dimension $dimension"
+        }
+
+        val resultShape =
+            shape.filterIndexed { i, _ ->
+                i != dimension
+            }
+
+        require(resultShape.isNotEmpty()) {
+            "Cannot select the only dimension of a tensor"
+        }
+
+        return Tensor(resultShape) { resultIndices ->
+            val sourceIndices = IntArray(rank)
+
+            var resultDimension = 0
+
+            for (sourceDimension in 0 until rank) {
+                if (sourceDimension == dimension) {
+                    sourceIndices[sourceDimension] = index
+                } else {
+                    sourceIndices[sourceDimension] =
+                        resultIndices[resultDimension]
+
+                    resultDimension++
+                }
+            }
+
+            get(*sourceIndices)
+        }
+    }
+
 }
