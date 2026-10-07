@@ -10,6 +10,11 @@ class MutableTensor private constructor(
     override val shape: List<Int> =
         shape.toList()
 
+    override val T: Tea<MutableTensor>
+        get() = Tea { axes ->
+            permute(*axes)
+        }
+
     override operator fun get(index: Int): MutableTensor {
         require(rank > 0) {
             "Cannot select from a scalar tensor"
@@ -121,6 +126,17 @@ class MutableTensor private constructor(
         return index
     }
 
+    override fun permute(vararg axes: Int): MutableTensor {
+        requirePermutation(axes)
+
+        return MutableTensor(
+            data = data,
+            shape = axes.map { shape[it] },
+            strides = axes.map { strides[it] },
+            offset = offset,
+        )
+    }
+
     private fun dataIndex(flatIndex: Int): Int {
         var remainder = flatIndex
         var index = offset
@@ -141,6 +157,20 @@ class MutableTensor private constructor(
         require(shape == other.shape) {
             "Tensor shapes must match: $shape != ${other.shape}"
         }
+
+    private fun requirePermutation(axes: IntArray) {
+        require(axes.size == rank) {
+            "Expected $rank axes, got ${axes.size}"
+        }
+
+        require(axes.all { it in 0 until rank }) {
+            "Axes must be in 0 until $rank: ${axes.toList()}"
+        }
+
+        require(axes.toSet().size == rank) {
+            "Axes must not contain duplicates: ${axes.toList()}"
+        }
+    }
 
     companion object {
         operator fun invoke(

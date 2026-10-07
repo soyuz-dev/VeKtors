@@ -222,4 +222,41 @@ fun main() {
     println("Row shape: ${newRow.shape}")
     println("Scalar shape: ${newScalar.shape}")
     println("Scalar: ${newScalar.valueAt()}")
+
+    println("=== Tea ===")
+
+    val newTensor = Tensor(2, 3, 4) { (x, y, z) ->
+        (x * 100 + y * 10 + z).toFloat()
+    }
+
+    val transposed = newTensor.T[2, 0, 1]
+
+    println("Original shape: ${newTensor.shape}")
+    println("T[2, 0, 1] shape: ${transposed.shape}")
+
+    println("tensor[1][2][3] = ${newTensor[1][2][3].valueAt()}")
+    println("T[2, 0, 1][3][1][2] = ${transposed[3][1][2].valueAt()}")
+
+    println()
+
+    val newMutable = MutableTensor(2, 3, 4) { (x, y, z) ->
+        (x * 100 + y * 10 + z).toFloat()
+    }
+
+    val mutableT = newMutable.T[2, 0, 1]
+
+    println("Before:")
+    println(newMutable.valueAt(1, 2, 3))
+    println(mutableT.valueAt(3, 1, 2))
+
+    mutableT.setValueAt(
+        3,
+        1,
+        2,
+        value = 69420f,
+    )
+
+    println("After:")
+    println(newMutable.valueAt(1, 2, 3))
+    println(mutableT.valueAt(3, 1, 2))
 }

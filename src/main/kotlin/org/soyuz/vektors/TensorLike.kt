@@ -11,6 +11,8 @@ interface TensorLike {
             acc * dimension
         }
 
+    val T: Tea<out TensorLike>
+
     operator fun get(index: Int): TensorLike
 
     fun valueAt(vararg indices: Int): Float {
@@ -145,6 +147,8 @@ interface TensorLike {
             valueAt(*sourceIndices)
         }
     }
+
+    fun permute(vararg axes: Int): TensorLike
 
     private fun elementwise(
         other: TensorLike,

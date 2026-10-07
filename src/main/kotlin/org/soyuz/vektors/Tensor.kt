@@ -10,6 +10,11 @@ class Tensor private constructor(
     override val shape: List<Int> =
         shape.toList()
 
+    override val T: Tea<Tensor>
+        get() = Tea { axes ->
+            permute(*axes)
+        }
+
     override operator fun get(index: Int): Tensor {
         require(rank > 0) {
             "Cannot select from a scalar tensor"
@@ -93,6 +98,17 @@ class Tensor private constructor(
         )
     }
 
+    override fun permute(vararg axes: Int): Tensor {
+        requirePermutation(axes)
+
+        return Tensor(
+            data = data,
+            shape = axes.map { shape[it] },
+            strides = axes.map { strides[it] },
+            offset = offset,
+        )
+    }
+
     private fun dataIndex(flatIndex: Int): Int {
         var remainder = flatIndex
         var index = offset
@@ -108,6 +124,20 @@ class Tensor private constructor(
         }
 
         return index
+    }
+
+    private fun requirePermutation(axes: IntArray) {
+        require(axes.size == rank) {
+            "Expected $rank axes, got ${axes.size}"
+        }
+
+        require(axes.all { it in 0 until rank }) {
+            "Axes must be in 0 until $rank: ${axes.toList()}"
+        }
+
+        require(axes.toSet().size == rank) {
+            "Axes must not contain duplicates: ${axes.toList()}"
+        }
     }
 
     companion object {
