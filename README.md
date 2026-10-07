@@ -1,186 +1,293 @@
 # VeKtors
 
-A small, Kotlin-first numerical computing library for making cool things with software.
+A small, Kotlin-first numerical computing library for vectors, matrices, tensors, and related numerical operations.
 
-VeKtors provides a clean and expressive API for working with vectors, matrices, and tensors in Kotlin. It is intended for graphics, simulations, games, scientific computing, machine learning, and whatever other numerical doohickeys you feel like making.
-
-The goal is simple: make numerical computing feel natural in Kotlin without burying the maths under unnecessary ceremony.
+VeKtors is designed for expressive numerical code in areas such as simulations, graphics, games, and scientific computing, while keeping the API idiomatic to Kotlin and the implementation relatively small and understandable.
 
 ## Current Status
 
-**Current release: `v0.1-alpha`**
-
 VeKtors is in ***extremely* early development**. The API is currently being built from the ground up, so breaking changes are expected.
 
-Despite that, the core numerical types are now functional and usable.
+Current version: **0.2-alpha**
 
 ## Features
 
 ### Vectors
 
-`Vector` and `MutableVector` provide arbitrary-dimensional vector operations, including:
+Immutable and mutable vectors with support for:
 
-* Vector arithmetic
-* Scalar multiplication and division
-* Dot products
-* Magnitude and squared magnitude
-* Normalisation
-* Distance
-* Angles
-* Projection
-* Linear interpolation
-* Mapping and basic reductions
-
-Both implement `VectorLike`, allowing APIs to work with mutable and immutable vectors without caring about their storage semantics.
+- Elementwise arithmetic
+- Scalar arithmetic
+- Dot products
+- Magnitude and squared magnitude
+- Normalisation
+- Distance
+- Angles
+- Projection
+- Linear interpolation
+- Mapping and reductions
 
 ### Matrices
 
-`Matrix` and `MutableMatrix` provide row-major matrix operations, including:
+Immutable and mutable matrices with:
 
-* Matrix arithmetic
-* Scalar multiplication and division
-* Matrix multiplication
-* Matrix-vector multiplication
-* Transposition
-* `.T`
-* Mapping
-* In-place operations for mutable matrices
+- Elementwise arithmetic
+- Scalar arithmetic
+- Matrix multiplication
+- Matrix-vector multiplication
+- Transposition
 
-Both implement `MatrixLike`.
+Matrices also provide `.T` as a shorthand for transposition.
 
 ### Tensors
 
-`Tensor` and `MutableTensor` provide arbitrary-rank numerical arrays with flat row-major storage.
-
-Current tensor features include:
-
-* Arbitrary tensor shapes and ranks
-* Multidimensional indexing
-* Elementwise arithmetic
-* Scalar arithmetic
-* Broadcasting
-* Reshaping
-* Slicing
-* Dimension selection
-* Mapping
-* Basic reductions
-* Mutable and immutable variants
-
-Both implement `TensorLike`.
-
-## Example
+VeKtors provides arbitrary-rank tensors backed by flat `FloatArray` storage.
 
 ```kotlin
-val position = MutableVector(0f, 0f)
-val target = Vector(10f, 5f)
-
-val direction = (target - position).normalized()
-
-position += direction * 2f
+val tensor = Tensor(2, 3, 4) { (x, y, z) ->
+    (x * 100 + y * 10 + z).toFloat()
+}
 ```
 
-Matrices compose naturally:
-
 ```kotlin
-val rotation =
-    rotationY(angle) *
-    rotationX(angle * 0.7f) *
-    rotationZ(angle * 0.3f)
+tensor.shape
+// [2, 3, 4]
 
-val transformed = rotation * point
+tensor.rank
+// 3
+
+tensor.size
+// 24
+
+tensor.valueAt(1, 2, 3)
+// 123f
 ```
 
-And tensors support broadcasting:
+Tensor operations currently include:
+
+- Elementwise arithmetic
+- Scalar arithmetic
+- Broadcasting
+- Mapping
+- Reductions
+- Reshaping
+- Scalar tensors
+- Indexed views
+- Strided slicing
+- Axis permutation
+
+### Broadcasting
+
+Tensor elementwise operations support broadcasting between compatible shapes.
 
 ```kotlin
-val values = Tensor(2, 3) { (row, column) ->
+val a = Tensor(2, 3) { (row, column) ->
     (row * 10 + column).toFloat()
 }
 
-val offsets = Tensor(3) { (column) ->
+val b = Tensor(3) { (column) ->
     (column + 1).toFloat()
 }
 
-val result = values + offsets
+val result = a + b
 ```
 
-Shapes are exposed as ordinary read-only Kotlin lists:
+Here, the shape `[3]` tensor is broadcast across the leading dimension of the `[2, 3]` tensor.
+
+### Indexing
+
+Simple integer indexing removes the first dimension.
 
 ```kotlin
-result.shape
-// [2, 3]
-
-result.rank
-// 2
-
-result.size
-// 6
-```
-
-Tensors can also be sliced and reshaped:
-
-```kotlin
-val tensor = Tensor(4, 5, 6) { (x, y, z) ->
+val tensor = Tensor(2, 3, 4) { (x, y, z) ->
     (x * 100 + y * 10 + z).toFloat()
 }
 
-val sliced = tensor.slice(
-    Slice(1, 3),
-    Slice(0, 5, 2),
-    Slice(2, 6),
-)
+tensor[1].shape
+// [3, 4]
 
-val reshaped = tensor.reshape(10, 12)
+tensor[1][2].shape
+// [4]
+
+tensor[1][2][3].shape
+// []
+
+tensor[1][2][3].valueAt()
+// 123f
+```
+
+For more explicit indexing, VeKtors provides `Index`, `Range`, `Slice`, and `All`.
+
+```kotlin
+val view = tensor[
+    Index(1),
+    Range(0..1),
+    Slice(0, 4, 2),
+]
+```
+
+Their semantics are distinct:
+
+```kotlin
+Index(3)
+// Select one element and remove the dimension.
+
+Range(2..7)
+// Select an inclusive Kotlin range and preserve the dimension.
+
+Slice(2, 7)
+// Select [2, 7) and preserve the dimension.
+
+Slice(2, 8, 2)
+// Select 2, 4, 6.
+
+All
+// Preserve the entire dimension.
+```
+
+Missing indices implicitly behave as `All`.
+
+### Views
+
+Tensor indexing, slicing, and axis permutation create views over existing storage rather than copying values where possible.
+
+Mutable views share backing storage with their source tensor.
+
+```kotlin
+val tensor = MutableTensor(4, 5, 6) { (x, y, z) ->
+    (x * 100 + y * 10 + z).toFloat()
+}
+
+val view = tensor[
+    Index(2),
+    Range(1..3),
+    Slice(0, 6, 2),
+]
+
+view.setValueAt(
+    1,
+    2,
+    value = 69420f,
+)
+```
+
+Views are represented using shape, stride, and offset metadata over shared storage.
+
+### Axis Permutation and `T`
+
+`TensorLike` provides the `T` property for axis permutation.
+
+Unlike matrix transposition, tensors do not have a single universal transpose operation. `T` therefore accepts an explicit axis ordering:
+
+```kotlin
+val permuted = tensor.T[2, 0, 1]
+```
+
+For a tensor with shape:
+
+```text
+[2, 3, 4]
+```
+
+this produces:
+
+```text
+[4, 2, 3]
+```
+
+while preserving the underlying values.
+
+Because `T` is defined on `TensorLike`, the same interface is available across immutable and mutable tensor implementations.
+
+Mutable permutations remain writable views over the original storage.
+
+## Immutable and Mutable Types
+
+VeKtors keeps immutable and mutable numerical types separate.
+
+```text
+VectorLike        MatrixLike        TensorLike
+    │                  │                 │
+ Vector             Matrix             Tensor
+    │                  │                 │
+MutableVector     MutableMatrix     MutableTensor
+```
+
+The `*Like` interfaces define common read-only numerical behaviour shared by their concrete implementations.
+
+Ordinary arithmetic generally produces immutable values, while mutable types provide explicit in-place operations.
+
+```kotlin
+mutableVector += other
+mutableMatrix *= 2f
+mutableTensor *= 1.5f
 ```
 
 ## Design
 
-VeKtors follows a few simple principles:
+VeKtors currently follows a few broad design principles:
 
-* **Kotlin-first API** — the library should feel like Kotlin, not a Java or Python API translated into Kotlin.
-* **Immutable by default** — ordinary operations produce immutable values.
-* **Explicit mutability** — mutable variants are available when in-place operations are useful.
-* **Simple representations** — numerical data is currently backed primarily by flat `FloatArray`s.
-* **Minimal ceremony** — common mathematical expressions should look like the mathematics they represent.
-* **Understandable implementation** — optimisation should not come at the cost of turning the library into incomprehensible machinery without evidence that it is necessary.
+- Prefer idiomatic Kotlin APIs over conventions copied directly from other numerical libraries.
+- Keep immutable and mutable types distinct.
+- Use lightweight read-only interfaces such as `VectorLike`, `MatrixLike`, and `TensorLike`.
+- Prefer views to unnecessary copies for tensor slicing and permutation.
+- Use primitive storage internally.
+- Keep abstractions small until repeated use justifies them.
+- Optimise based on measured workloads rather than assumptions.
 
-The core type structure currently looks like:
+The current tensor implementation uses flat `FloatArray` storage with shape, stride, and offset metadata.
 
-```text
-VectorLike       MatrixLike       TensorLike
-    │                 │               │
-  Vector            Matrix          Tensor
-    │                 │               │
-MutableVector    MutableMatrix   MutableTensor
-```
+## Testing
 
-The `*Like` interfaces represent read-only mathematical capabilities rather than mutability or storage. This allows, for example, a function accepting `VectorLike` to work naturally with either a `Vector` or a `MutableVector`.
+VeKtors includes JUnit tests covering:
 
-## Performance
+- Tensor construction and indexing
+- Scalar tensors
+- Reshaping
+- Broadcasting
+- Elementwise operations
+- Mutable operations
+- Indexed views
+- Strided slicing
+- Shared mutable backing storage
+- Axis permutation
+- Slicing after permutation
+- Mixed use of `Index`, `Range`, `Slice`, and `All`
 
-VeKtors currently prioritises a straightforward API and implementation over low-level optimisation.
-
-Numerical values use primitive `FloatArray` storage where appropriate, and operations are generally implemented as simple loops suitable for JVM optimisation.
-
-Explicit SIMD and more specialised optimisation may be explored later as larger tensor workloads make meaningful benchmarking possible.
+The current test suite contains 32 tests.
 
 ## Roadmap
 
-Possible future additions include:
+Possible future work includes:
 
-* Axis-based tensor reductions
-* Tensor axis permutation and transposition
-* Tensor contraction
-* More advanced slicing and indexing
-* Additional matrix operations
-* Conversion between vectors, matrices, and tensors
-* Performance optimisation based on profiling
-* SIMD where it provides a measurable benefit
+- More tensor operations
+- Tensor contractions
+- Additional matrix operations
+- More reductions
+- Improved conversions between vectors, matrices, and tensors
+- Further slicing capabilities
+- Performance profiling
+- SIMD where it is beneficial
+- Continued refinement of view semantics and numerical APIs
 
-The roadmap is intentionally flexible. VeKtors is still ***extremely* early***.
+The API is still under active development, so these plans may change as the library evolves.
 
-## Version
+## License
 
-`0.1-alpha`
+VeKtors is licensed under the **Mozilla Public License 2.0 (MPL-2.0)**.
 
-> Apparently 11 commits are enough for a release.
+You may use VeKtors in open-source or proprietary projects. Changes made to MPL-covered source files must remain available under the MPL when distributed.
+
+See [`LICENSE`](LICENSE) for the full license text.
+
+---
+
+And yes, the axis-permutation helper T is called `Tea`.
+
+So naturally:
+
+```kotlin
+tensor.T[2, 0, 1]
+```
+
+is how VeKtors serves Tea.
