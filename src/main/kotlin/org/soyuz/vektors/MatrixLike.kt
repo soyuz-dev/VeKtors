@@ -1,5 +1,7 @@
 package org.soyuz.vektors
 
+import kotlin.math.abs
+
 interface MatrixLike {
     val rows: Int
     val columns: Int
@@ -127,4 +129,17 @@ interface MatrixLike {
 
         return trace
     }
+
+
+    val lu: Pluto
+        get() = Pluto(this)
+
+    fun determinant(): Float = lu.determinant
+
+    fun inverse(): Matrix = lu.inverse
+
+    fun solve(b: VectorLike): Vector = lu.solve(b)
+
+    fun solve(b: MatrixLike): Matrix = lu.solve(b)
+
 }

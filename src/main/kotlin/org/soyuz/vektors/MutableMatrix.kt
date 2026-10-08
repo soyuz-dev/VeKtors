@@ -14,6 +14,30 @@ class MutableMatrix private constructor(
     }
 
     companion object {
+        operator fun invoke(
+            rows: Int,
+            columns: Int,
+            init: (Int, Int) -> Float,
+        ): MutableMatrix {
+            require(rows > 0) {
+                "Matrix must have at least one row"
+            }
+            require(columns > 0) {
+                "Matrix must have at least one column"
+            }
+
+            return MutableMatrix(
+                data = FloatArray(rows * columns) { index ->
+                    init(
+                        index / columns,
+                        index % columns,
+                    )
+                },
+                rows = rows,
+                columns = columns,
+            )
+        }
+
         operator fun invoke(vararg rows: FloatArray): MutableMatrix {
             require(rows.isNotEmpty()) {
                 "Matrix cannot be empty"
@@ -24,7 +48,6 @@ class MutableMatrix private constructor(
             require(columns > 0) {
                 "Matrix cannot have empty rows"
             }
-
             require(rows.all { it.size == columns }) {
                 "Matrix rows must have matching dimensions"
             }
@@ -43,12 +66,32 @@ class MutableMatrix private constructor(
                 FloatArray(other.rows * other.columns) { index ->
                     other[
                         index / other.columns,
-                        index % other.columns
+                        index % other.columns,
                     ]
                 },
                 other.rows,
                 other.columns,
             )
+
+        fun identity(size: Int): MutableMatrix {
+            require(size > 0) {
+                "Identity matrix size must be positive"
+            }
+
+            return MutableMatrix(size, size) { row, column ->
+                if (row == column) 1f else 0f
+            }
+        }
+
+        fun diagonal(vararg values: Float): MutableMatrix {
+            require(values.isNotEmpty()) {
+                "Diagonal matrix cannot be empty"
+            }
+
+            return MutableMatrix(values.size, values.size) { row, column ->
+                if (row == column) values[row] else 0f
+            }
+        }
     }
 
     operator fun plusAssign(other: MatrixLike) {

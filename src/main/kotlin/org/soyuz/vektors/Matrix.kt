@@ -18,7 +18,6 @@ class Matrix private constructor(
             require(rows > 0) {
                 "Matrix must have at least one row"
             }
-
             require(columns > 0) {
                 "Matrix must have at least one column"
             }
@@ -45,7 +44,6 @@ class Matrix private constructor(
             require(columns > 0) {
                 "Matrix cannot have empty rows"
             }
-
             require(rows.all { it.size == columns }) {
                 "Matrix rows must have matching dimensions"
             }
@@ -70,5 +68,25 @@ class Matrix private constructor(
                 other.rows,
                 other.columns,
             )
+
+        fun identity(size: Int): Matrix {
+            require(size > 0) {
+                "Identity matrix size must be positive"
+            }
+
+            return Matrix(size, size) { row, column ->
+                if (row == column) 1f else 0f
+            }
+        }
+
+        fun diagonal(vararg values: Float): Matrix {
+            require(values.isNotEmpty()) {
+                "Diagonal matrix cannot be empty"
+            }
+
+            return Matrix(values.size, values.size) { row, column ->
+                if (row == column) values[row] else 0f
+            }
+        }
     }
 }
