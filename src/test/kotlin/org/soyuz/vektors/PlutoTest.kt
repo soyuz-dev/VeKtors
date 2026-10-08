@@ -143,4 +143,134 @@ class PlutoTest {
         assertEquals(1f, x2[0], 1e-5f)
         assertEquals(1f, x2[1], 1e-5f)
     }
+
+
+    @Test
+    fun `LU decomposition reconstructs matrix`() {
+        val a = Matrix(
+            floatArrayOf(4f, 3f),
+            floatArrayOf(6f, 3f),
+        )
+
+        val pluto = a.lu
+
+        val left = pluto.P * a
+        val right = pluto.L * pluto.U
+
+        for (row in 0 until a.rows) {
+            for (column in 0 until a.columns) {
+                assertEquals(
+                    left[row, column],
+                    right[row, column],
+                    1e-5f,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `LU decomposition handles multiple pivots`() {
+        val a = Matrix(
+            floatArrayOf(0f, 0f, 2f),
+            floatArrayOf(1f, 0f, 3f),
+            floatArrayOf(0f, 4f, 5f),
+        )
+
+        val pluto = a.lu
+
+        val left = pluto.P * a
+        val right = pluto.L * pluto.U
+
+        for (row in 0 until a.rows) {
+            for (column in 0 until a.columns) {
+                assertEquals(
+                    left[row, column],
+                    right[row, column],
+                    1e-5f,
+                )
+            }
+        }
+
+        assertEquals(
+            listOf(1, 2, 0),
+            pluto.permutation,
+        )
+    }
+
+    @Test
+    fun `L has unit diagonal and zero upper triangle`() {
+        val a = Matrix(
+            floatArrayOf(2f, 1f, 3f),
+            floatArrayOf(4f, 5f, 6f),
+            floatArrayOf(7f, 8f, 10f),
+        )
+
+        val l = a.lu.L
+
+        for (row in 0 until l.rows) {
+            for (column in 0 until l.columns) {
+                if (row == column) {
+                    assertEquals(1f, l[row, column])
+                }
+
+                if (row < column) {
+                    assertEquals(0f, l[row, column])
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `U has zero lower triangle`() {
+        val a = Matrix(
+            floatArrayOf(2f, 1f, 3f),
+            floatArrayOf(4f, 5f, 6f),
+            floatArrayOf(7f, 8f, 10f),
+        )
+
+        val u = a.lu.U
+
+        for (row in 0 until u.rows) {
+            for (column in 0 until u.columns) {
+                if (row > column) {
+                    assertEquals(0f, u[row, column])
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `P is a valid permutation matrix`() {
+        val a = Matrix(
+            floatArrayOf(0f, 2f, 3f),
+            floatArrayOf(4f, 5f, 6f),
+            floatArrayOf(7f, 8f, 9f),
+        )
+
+        val p = a.lu.P
+
+        for (row in 0 until p.rows) {
+            var rowSum = 0f
+
+            for (column in 0 until p.columns) {
+                val value = p[row, column]
+
+                assertTrue(value == 0f || value == 1f)
+                rowSum += value
+            }
+
+            assertEquals(1f, rowSum)
+        }
+
+        for (column in 0 until p.columns) {
+            var columnSum = 0f
+
+            for (row in 0 until p.rows) {
+                columnSum += p[row, column]
+            }
+
+            assertEquals(1f, columnSum)
+        }
+    }
+
 }

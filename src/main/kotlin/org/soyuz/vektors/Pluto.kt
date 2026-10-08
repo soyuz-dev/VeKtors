@@ -111,6 +111,34 @@ class Pluto private constructor(
             return solve(Matrix.identity(size))
         }
 
+
+    val L: Matrix
+        get() = Matrix(size, size) { row, column ->
+            when {
+                row > column -> data[row * size + column]
+                row == column -> 1f
+                else -> 0f
+            }
+        }
+
+    val U: Matrix
+        get() = Matrix(size, size) { row, column ->
+            if (row <= column) {
+                data[row * size + column]
+            } else {
+                0f
+            }
+        }
+
+    val P: Matrix
+        get() = Matrix(size, size) { row, column ->
+            if (pivots[row] == column) 1f else 0f
+        }
+
+    val permutation: List<Int>
+        get() = pivots.toList()
+
+
     companion object {
         operator fun invoke(matrix: MatrixLike): Pluto {
             require(matrix.rows == matrix.columns) {
