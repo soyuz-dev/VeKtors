@@ -221,4 +221,102 @@ interface MatrixLike {
     }
 
 
+
+    fun rref(tolerance: Float = 1e-6f): RowReduction {
+        require(tolerance.isFinite() && tolerance >= 0f) {
+            "Tolerance must be finite and non-negative"
+        }
+
+        val data = Array(rows) { row ->
+            FloatArray(columns) { column ->
+                this[row, column]
+            }
+        }
+
+        require(data.all { row -> row.all { it.isFinite() } }) {
+            "Matrix must contain only finite values"
+        }
+
+        var scale = 0f
+
+        for (row in data) {
+            for (value in row) {
+                val magnitude = kotlin.math.abs(value)
+                if (magnitude > scale) scale = magnitude
+            }
+        }
+
+        if (scale == 0f) {
+            return RowReduction(
+                Matrix(rows, columns) { _, _ -> 0f },
+                emptyList(),
+            )
+        }
+
+        for (row in data) {
+            for (column in row.indices) {
+                row[column] /= scale
+            }
+        }
+
+        val pivotColumns = mutableListOf<Int>()
+        var pivotRow = 0
+
+        for (column in 0 until columns) {
+            if (pivotRow == rows) break
+
+            var pivot = pivotRow
+
+            for (row in pivotRow + 1 until rows) {
+                if (
+                    kotlin.math.abs(data[row][column]) >
+                    kotlin.math.abs(data[pivot][column])
+                ) {
+                    pivot = row
+                }
+            }
+
+            if (kotlin.math.abs(data[pivot][column]) <= tolerance) {
+                continue
+            }
+
+            if (pivot != pivotRow) {
+                val temporary = data[pivotRow]
+                data[pivotRow] = data[pivot]
+                data[pivot] = temporary
+            }
+
+            val pivotValue = data[pivotRow][column]
+
+            for (k in column until columns) {
+                data[pivotRow][k] /= pivotValue
+            }
+
+            data[pivotRow][column] = 1f
+
+            for (row in 0 until rows) {
+                if (row == pivotRow) continue
+
+                val factor = data[row][column]
+                data[row][column] = 0f
+
+                for (k in column + 1 until columns) {
+                    data[row][k] -= factor * data[pivotRow][k]
+                }
+            }
+
+            pivotColumns.add(column)
+            pivotRow++
+        }
+
+        return RowReduction(
+            Matrix(rows, columns) { row, column ->
+                val value = data[row][column]
+                if (kotlin.math.abs(value) <= tolerance) 0f else value
+            },
+            pivotColumns,
+        )
+    }
+
+
 }
