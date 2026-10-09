@@ -143,82 +143,8 @@ interface MatrixLike {
     fun solve(b: MatrixLike): Matrix = lu.solve(b)
 
 
-    fun rank(tolerance: Float = 1e-6f): Int {
-        require(tolerance.isFinite() && tolerance >= 0f) {
-            "Tolerance must be finite and non-negative"
-        }
-
-        val data = Array(rows) { row ->
-            FloatArray(columns) { column ->
-                this[row, column]
-            }
-        }
-
-        require(data.all { row -> row.all { it.isFinite() } }) {
-            "Matrix must contain only finite values"
-        }
-
-        var scale = 0f
-
-        for (row in data) {
-            for (value in row) {
-                val magnitude = kotlin.math.abs(value)
-                if (magnitude > scale) scale = magnitude
-            }
-        }
-
-        if (scale == 0f) return 0
-
-        // Work with a normalised copy to avoid scale-dependent
-        // pivot thresholds.
-        for (row in data) {
-            for (column in row.indices) {
-                row[column] /= scale
-            }
-        }
-
-        var rank = 0
-
-        for (column in 0 until columns) {
-            if (rank == rows) break
-
-            var pivot = rank
-
-            for (row in rank + 1 until rows) {
-                if (
-                    kotlin.math.abs(data[row][column]) >
-                    kotlin.math.abs(data[pivot][column])
-                ) {
-                    pivot = row
-                }
-            }
-
-            if (kotlin.math.abs(data[pivot][column]) <= tolerance) {
-                continue
-            }
-
-            if (pivot != rank) {
-                val temporary = data[rank]
-                data[rank] = data[pivot]
-                data[pivot] = temporary
-            }
-
-            val pivotValue = data[rank][column]
-
-            for (row in rank + 1 until rows) {
-                val factor = data[row][column] / pivotValue
-                data[row][column] = 0f
-
-                for (k in column + 1 until columns) {
-                    data[row][k] -= factor * data[rank][k]
-                }
-            }
-
-            rank++
-        }
-
-        return rank
-    }
+    fun rank(tolerance: Float = 1e-6f): Int =
+        rref(tolerance).rank
 
 
 

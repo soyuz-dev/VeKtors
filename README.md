@@ -1,4 +1,4 @@
-# VeKtors v0.2-alpha
+# VeKtors v0.3-alpha
 
 A small, Kotlin-first numerical computing library for vectors, matrices, tensors, and related numerical operations.
 
@@ -8,7 +8,10 @@ VeKtors is designed for expressive numerical code in areas such as simulations, 
 
 VeKtors is in ***extremely* early development**. The API is currently being built from the ground up, so breaking changes are expected.
 
-Current version: **0.2-alpha**
+Current published release: **v0.2-alpha**  
+Next release: **v0.3-alpha (in development)**
+
+The upcoming release expands the matrix API with factorisation, linear-system solving, rank, and row reduction. The library currently uses `Float` for numerical storage and computation; numerical accuracy on ill-conditioned problems is an ongoing concern.
 
 ## Features
 
@@ -31,13 +34,115 @@ Immutable and mutable vectors with support for:
 
 Immutable and mutable matrices with:
 
-- Elementwise arithmetic
-- Scalar arithmetic
-- Matrix multiplication
-- Matrix-vector multiplication
-- Transposition
+- Elementwise and scalar arithmetic
+- Matrix multiplication and matrix-vector multiplication
+- Transposition, with `.T` as shorthand
+- Identity and diagonal matrix factories
+- Trace, determinant, and inverse
+- Direct linear-system solving
+- LU factorisation with partial pivoting
+- Rank for square and rectangular matrices
+- Reduced row echelon form (RREF), including pivot and free columns
 
-Matrices also provide `.T` as a shorthand for transposition.
+#### Construction and elementary operations
+
+```kotlin
+val a = Matrix(
+    floatArrayOf(2f, 1f),
+    floatArrayOf(1f, 3f),
+)
+
+val identity = Matrix.identity(3)
+val diagonal = Matrix.diagonal(2f, 4f, 8f)
+
+val transpose = a.T
+val trace = a.trace()
+val determinant = a.determinant()
+val inverse = a.inverse()
+```
+
+Matrices can also be constructed from dimensions and a coordinate-based initializer:
+
+```kotlin
+val matrix = Matrix(2, 3) { row, column ->
+    (row * 10 + column).toFloat()
+}
+```
+
+#### Solving linear systems
+
+Solve `Ax = b` directly without explicitly constructing an inverse:
+
+```kotlin
+val a = Matrix(
+    floatArrayOf(2f, 1f),
+    floatArrayOf(1f, 3f),
+)
+val b = Vector(5f, 7f)
+
+val x = a.solve(b)
+// Approximately [1.6, 1.8]
+```
+
+`solve()` also accepts a `MatrixLike` right-hand side to solve multiple systems at once. Square nonsingular coefficient matrices are required.
+
+#### LU factorisation: `Pluto`
+
+VeKtors implements LU factorisation with partial pivoting:
+
+\[
+PA = LU
+\]
+
+```kotlin
+val pluto = a.lu
+
+val x = pluto.solve(b)
+val determinant = pluto.determinant
+val inverse = pluto.inverse
+
+val lower = pluto.L
+val upper = pluto.U
+val permutation = pluto.P
+val pivotOrder = pluto.permutation
+```
+
+`a.lu` is a **computed property**: each access builds a fresh factorisation. Store the returned `Pluto` instance if you need to solve multiple systems with the same coefficient matrix.
+
+```kotlin
+val pluto = a.lu
+val first = pluto.solve(Vector(5f, 7f))
+val second = pluto.solve(Vector(1f, 4f))
+```
+
+The factorisation owns a snapshot of its input, so subsequent edits to a `MutableMatrix` do not affect an existing `Pluto` instance. `L` and `U` are extractable for nonsingular matrices; `P` represents the row permutation. The decomposition can be checked approximately with `pluto.P * a` and `pluto.L * pluto.U`.
+
+#### Rank and row reduction
+
+`rank()` supports both square and rectangular matrices:
+
+```kotlin
+val dependent = Matrix(
+    floatArrayOf(1f, 2f, 3f),
+    floatArrayOf(2f, 4f, 6f),
+)
+
+val rank = dependent.rank()
+// 1
+```
+
+Use `rref()` to obtain a reduced matrix along with pivot and free column indices:
+
+```kotlin
+val result = dependent.rref()
+
+val reduced = result.matrix
+val pivots = result.pivotColumns
+val free = result.freeColumns
+val rankFromReduction = result.rank
+```
+
+Both `rank()` and `rref()` accept an optional tolerance (default `1e-6f`) for numerical pivot detection. The tolerance is applied relative to the matrix's largest absolute entry. Results for nearly dependent rows can depend on the tolerance and floating-point precision; they should not be treated as exact symbolic results.
 
 ### Tensors
 
@@ -65,11 +170,9 @@ tensor.valueAt(1, 2, 3)
 
 Tensor operations currently include:
 
-- Elementwise arithmetic
-- Scalar arithmetic
+- Elementwise and scalar arithmetic
 - Broadcasting
-- Mapping
-- Reductions
+- Mapping and reductions
 - Reshaping
 - Scalar tensors
 - Indexed views
@@ -183,23 +286,23 @@ Unlike matrix transposition, tensors do not have a single universal transpose op
 val permuted = tensor.T[2, 0, 1]
 ```
 
-For a tensor with shape:
+For a tensor with shape `[2, 3, 4]`, this produces shape `[4, 2, 3]` while preserving the underlying values.
 
-```text
-[2, 3, 4]
+Because `T` is defined on `TensorLike`, the same interface is available across immutable and mutable tensor implementations. Mutable permutations remain writable views over the original storage.
+
+### Conversions
+
+Convert between vectors, matrices, and tensors when their ranks are compatible:
+
+```kotlin
+val tensorFromVector = Vector(1f, 2f, 3f).toTensor()
+val tensorFromMatrix = Matrix.identity(3).toTensor()
+
+val vector = tensorFromVector.toVector()
+val matrix = tensorFromMatrix.toMatrix()
 ```
 
-this produces:
-
-```text
-[4, 2, 3]
-```
-
-while preserving the underlying values.
-
-Because `T` is defined on `TensorLike`, the same interface is available across immutable and mutable tensor implementations.
-
-Mutable permutations remain writable views over the original storage.
+Converting a tensor to a vector requires rank 1; converting to a matrix requires rank 2. Conversions create values of the requested type rather than exposing a mutable alias to the source.
 
 ## Immutable and Mutable Types
 
@@ -213,7 +316,7 @@ VectorLike        MatrixLike        TensorLike
 MutableVector     MutableMatrix     MutableTensor
 ```
 
-The `*Like` interfaces define common read-only numerical behaviour shared by their concrete implementations.
+The `*Like` interfaces define common read-only numerical behaviour shared by their concrete implementations. The concrete immutable and mutable types are separate implementations, not subclasses of one another.
 
 Ordinary arithmetic generally produces immutable values, while mutable types provide explicit in-place operations.
 
@@ -235,40 +338,41 @@ VeKtors currently follows a few broad design principles:
 - Keep abstractions small until repeated use justifies them.
 - Optimise based on measured workloads rather than assumptions.
 
-The current tensor implementation uses flat `FloatArray` storage with shape, stride, and offset metadata.
+The current tensor implementation uses flat `FloatArray` storage with shape, stride, and offset metadata. Matrix factorisation instead makes an independent working copy, preserving the source matrix.
 
 ## Testing
 
 VeKtors includes JUnit tests covering:
 
-- Tensor construction and indexing
-- Scalar tensors
-- Reshaping
-- Broadcasting
-- Elementwise operations
-- Mutable operations
-- Indexed views
-- Strided slicing
-- Shared mutable backing storage
-- Axis permutation
-- Slicing after permutation
-- Mixed use of `Index`, `Range`, `Slice`, and `All`
+- Tensor construction, scalar tensors, and indexing
+- Reshaping, broadcasting, and elementwise operations
+- Mutable operations and shared backing storage
+- Strided slicing and mixed `Index`, `Range`, `Slice`, and `All` indexing
+- Axis permutation and slicing after permutation
+- Vector/matrix/tensor conversions
+- Matrix factories, trace, determinants, and inverses
+- Linear-system solving and multiple right-hand sides
+- LU factorisation, pivoting, and factor reconstruction
+- Matrix rank, numerical tolerances, and RREF
 
-The current test suite contains 32 tests.
+Tests are organised into focused files instead of a single `TensorTest.kt`. The suite is under active expansion; run the repository's Gradle tests for the current result.
 
 ## Roadmap
 
-Possible future work includes:
+Near-term priorities for **v0.3-alpha**:
 
-- More tensor operations
-- Tensor contractions
-- Additional matrix operations
-- More reductions
-- Improved conversions between vectors, matrices, and tensors
-- Further slicing capabilities
-- Performance profiling
-- SIMD where it is beneficial
-- Continued refinement of view semantics and numerical APIs
+- Finish regression testing and documentation for the expanded matrix API
+- Review numerical stability and tolerance handling
+- Stabilise the public API ahead of the release
+
+Potential **v0.4-alpha** work:
+
+- Householder QR decomposition
+- Least-squares solving for overdetermined systems
+- Matrix norms and further orthogonality operations
+- Null spaces and other row-reduction-based utilities
+
+Longer-term work may include tensor contraction, batched operations, axis-wise reductions, performance profiling, and SIMD where measurements justify it.
 
 The API is still under active development, so these plans may change as the library evolves.
 
@@ -278,11 +382,11 @@ VeKtors is licensed under the **Mozilla Public License 2.0 (MPL-2.0)**.
 
 You may use VeKtors in open-source or proprietary projects. Changes made to MPL-covered source files must remain available under the MPL when distributed.
 
-See [`LICENSE`](LICENSE) for the full license text.
+See [`LICENSE`](LICENSE) for the full licence text.
 
 ---
 
-And yes, the axis-permutation helper T is called `Tea`.
+And yes, the axis-permutation helper `T` is called `Tea`.
 
 So naturally:
 
@@ -291,3 +395,5 @@ tensor.T[2, 0, 1]
 ```
 
 is how VeKtors serves Tea.
+
+The LU factorisation helper is called `Pluto`. It handles `P`, `L`, and `U` — because apparently numerical linear algebra now has an astronomy department.
