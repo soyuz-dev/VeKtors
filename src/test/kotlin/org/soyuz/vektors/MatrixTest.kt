@@ -223,4 +223,145 @@ class MatrixTest {
             matrix.inverse()
         }
     }
+
+
+    @Test
+    fun `identity matrix has full rank`() {
+        assertEquals(4, Matrix.identity(4).rank())
+    }
+
+    @Test
+    fun `zero matrix has rank zero`() {
+        val matrix = Matrix(3, 4) { _, _ -> 0f }
+
+        assertEquals(0, matrix.rank())
+    }
+
+    @Test
+    fun `matrix with dependent rows has rank one`() {
+        val matrix = Matrix(
+            floatArrayOf(1f, 2f, 3f),
+            floatArrayOf(2f, 4f, 6f),
+            floatArrayOf(3f, 6f, 9f),
+        )
+
+        assertEquals(1, matrix.rank())
+    }
+
+    @Test
+    fun `wide rectangular matrix has full row rank`() {
+        val matrix = Matrix(
+            floatArrayOf(1f, 2f, 3f),
+            floatArrayOf(4f, 5f, 6f),
+        )
+
+        assertEquals(2, matrix.rank())
+    }
+
+    @Test
+    fun `tall rectangular matrix has full column rank`() {
+        val matrix = Matrix(
+            floatArrayOf(1f, 0f),
+            floatArrayOf(0f, 1f),
+            floatArrayOf(1f, 1f),
+        )
+
+        assertEquals(2, matrix.rank())
+    }
+
+    @Test
+    fun `rank skips columns without pivots`() {
+        val matrix = Matrix(
+            floatArrayOf(0f, 1f, 2f),
+            floatArrayOf(0f, 0f, 1f),
+            floatArrayOf(0f, 0f, 0f),
+        )
+
+        assertEquals(2, matrix.rank())
+    }
+
+    @Test
+    fun `rank is invariant under row swaps`() {
+        val matrix = Matrix(
+            floatArrayOf(0f, 2f, 1f),
+            floatArrayOf(3f, 4f, 5f),
+            floatArrayOf(0f, 0f, 6f),
+        )
+
+        assertEquals(3, matrix.rank())
+    }
+
+    @Test
+    fun `rank is invariant under uniform scaling`() {
+        val matrix = Matrix(
+            floatArrayOf(1f, 2f),
+            floatArrayOf(2f, 4f),
+        )
+
+        assertEquals(1, matrix.rank())
+        assertEquals(1, (matrix * 1e-8f).rank())
+        assertEquals(1, (matrix * 1e8f).rank())
+    }
+
+    @Test
+    fun `rank tolerance controls near dependence`() {
+        val matrix = Matrix(
+            floatArrayOf(1f, 0f),
+            floatArrayOf(0f, 1e-5f),
+        )
+
+        assertEquals(2, matrix.rank(1e-6f))
+        assertEquals(1, matrix.rank(1e-4f))
+    }
+
+    @Test
+    fun `rank works with mutable matrix`() {
+        val matrix = MutableMatrix(
+            floatArrayOf(1f, 2f),
+            floatArrayOf(2f, 4f),
+        )
+
+        assertEquals(1, matrix.rank())
+
+        matrix[1, 1] = 5f
+
+        assertEquals(2, matrix.rank())
+    }
+
+    @Test
+    fun `rank does not mutate original matrix`() {
+        val matrix = MutableMatrix(
+            floatArrayOf(0f, 1f),
+            floatArrayOf(2f, 3f),
+        )
+
+        matrix.rank()
+
+        assertEquals(0f, matrix[0, 0])
+        assertEquals(1f, matrix[0, 1])
+        assertEquals(2f, matrix[1, 0])
+        assertEquals(3f, matrix[1, 1])
+    }
+
+    @Test
+    fun `rank rejects negative tolerance`() {
+        val matrix = Matrix.identity(2)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            matrix.rank(-1f)
+        }
+    }
+
+    @Test
+    fun `rank rejects non finite entries`() {
+        val matrix = Matrix(
+            floatArrayOf(1f, Float.NaN),
+            floatArrayOf(0f, 1f),
+        )
+
+        assertThrows(IllegalArgumentException::class.java) {
+            matrix.rank()
+        }
+    }
+
 }
