@@ -1,17 +1,18 @@
-# VeKtors v0.3-alpha
+# VeKtors v0.4-alpha
 
 A small, Kotlin-first numerical computing library for vectors, matrices, tensors, and related numerical operations.
 
-VeKtors is designed for expressive numerical code in areas such as simulations, graphics, games, and scientific computing, while keeping the API idiomatic to Kotlin and the implementation relatively small and understandable.
+VeKtors is designed for expressive numerical code in areas such as simulations, graphics, games, and mathematical experimentation, while keeping the API idiomatic to Kotlin and the implementation relatively small and understandable.
 
 ## Current Status
 
-VeKtors is in ***extremely* early development**. The API is currently being built from the ground up, so breaking changes are expected.
+VeKtors is in **early development**. The core numerical types and several linear algebra operations are implemented, but the API is still evolving and breaking changes are possible.
 
-Current published release: **v0.2-alpha**  
-Next release: **v0.3-alpha (in development)**
+Current published release: **v0.4-alpha**
 
-The upcoming release expands the matrix API with factorisation, linear-system solving, rank, and row reduction. The library currently uses `Float` for numerical storage and computation; numerical accuracy on ill-conditioned problems is an ongoing concern.
+This release expands VeKtors' numerical linear algebra capabilities with Householder QR decomposition, least-squares solving, matrix norms, and numerical accuracy testing.
+
+VeKtors currently uses `Float` for its public numerical types, with `Double` intermediates in selected numerical algorithms.
 
 ## Features
 
@@ -41,6 +42,9 @@ Immutable and mutable matrices with:
 - Trace, determinant, and inverse
 - Direct linear-system solving
 - LU factorisation with partial pivoting
+- QR decomposition using Householder reflections
+- Least-squares solving
+- Frobenius, one, and infinity norms
 - Rank for square and rectangular matrices
 - Reduced row echelon form (RREF), including pivot and free columns
 
@@ -61,7 +65,7 @@ val determinant = a.determinant()
 val inverse = a.inverse()
 ```
 
-Matrices can also be constructed from dimensions and a coordinate-based initializer:
+Matrices can also be constructed using dimensions and a coordinate-based initialiser:
 
 ```kotlin
 val matrix = Matrix(2, 3) { row, column ->
@@ -78,44 +82,145 @@ val a = Matrix(
     floatArrayOf(2f, 1f),
     floatArrayOf(1f, 3f),
 )
+
 val b = Vector(5f, 7f)
 
 val x = a.solve(b)
 // Approximately [1.6, 1.8]
 ```
 
-`solve()` also accepts a `MatrixLike` right-hand side to solve multiple systems at once. Square nonsingular coefficient matrices are required.
+`solve()` also accepts a `MatrixLike` right-hand side to solve multiple systems simultaneously.
+
+Direct solving requires a square, nonsingular coefficient matrix.
 
 #### LU factorisation: `Pluto`
 
 VeKtors implements LU factorisation with partial pivoting:
 
-\[
-PA = LU
-\]
+**PA = LU**
 
 ```kotlin
 val pluto = a.lu
-
-val x = pluto.solve(b)
-val determinant = pluto.determinant
-val inverse = pluto.inverse
 
 val lower = pluto.L
 val upper = pluto.U
 val permutation = pluto.P
 val pivotOrder = pluto.permutation
+
+val determinant = pluto.determinant
+val inverse = pluto.inverse
+val solution = pluto.solve(b)
 ```
 
-`a.lu` is a **computed property**: each access builds a fresh factorisation. Store the returned `Pluto` instance if you need to solve multiple systems with the same coefficient matrix.
+The factorisation can be reused to solve multiple systems with the same coefficient matrix:
 
 ```kotlin
 val pluto = a.lu
+
 val first = pluto.solve(Vector(5f, 7f))
 val second = pluto.solve(Vector(1f, 4f))
 ```
 
-The factorisation owns a snapshot of its input, so subsequent edits to a `MutableMatrix` do not affect an existing `Pluto` instance. `L` and `U` are extractable for nonsingular matrices; `P` represents the row permutation. The decomposition can be checked approximately with `pluto.P * a` and `pluto.L * pluto.U`.
+`a.lu` is a computed property: each access creates a new factorisation.
+
+The resulting `Pluto` instance is independent of its source matrix, so subsequent modifications to a `MutableMatrix` do not affect an existing factorisation.
+
+The `L` and `U` factors can be extracted for nonsingular matrices. The `P` matrix represents the row permutations applied during factorisation.
+
+#### QR decomposition: `Barcode`
+
+VeKtors implements QR decomposition using Householder reflections:
+
+**A = QR**
+
+For an `m × n` matrix with `m >= n`, the thin QR decomposition produces:
+
+- `Q`: an `m × n` matrix with orthonormal columns
+- `R`: an `n × n` upper-triangular matrix
+
+```kotlin
+val a = Matrix(
+    floatArrayOf(1f, 2f),
+    floatArrayOf(3f, 4f),
+    floatArrayOf(5f, 6f),
+)
+
+val barcode = a.qr
+
+val q = barcode.Q
+val r = barcode.R
+
+val reconstructed = q * r
+```
+
+Like `lu`, `qr` is a computed property. Store the returned `Barcode` instance to reuse its factorisation.
+
+Householder reflectors are stored internally, avoiding the need to construct `Q` explicitly during factorisation. Selected intermediate calculations use `Double` precision.
+
+QR decomposition supports square and tall matrices, including rank-deficient matrices. Wide matrices are not currently supported.
+
+#### Least-squares solving
+
+For an overdetermined system, VeKtors can find a solution minimising the squared residual:
+
+**minimise ||Ax − b||²**
+
+```kotlin
+val a = Matrix(
+    floatArrayOf(1f, 0f),
+    floatArrayOf(0f, 1f),
+    floatArrayOf(1f, 1f),
+)
+
+val b = Vector(1f, 2f, 4f)
+
+val x = a.solveLeastSquares(b)
+```
+
+Least-squares solving uses the QR decomposition rather than explicitly forming the normal equations.
+
+The factorisation can be reused:
+
+```kotlin
+val barcode = a.qr
+
+val first = barcode.solveLeastSquares(b1)
+val second = barcode.solveLeastSquares(b2)
+```
+
+The solver currently requires full column rank. Rank-deficient or numerically singular systems are rejected according to a configurable tolerance.
+
+Minimum-norm solutions for underdetermined or rank-deficient systems are not currently supported.
+
+#### Matrix norms
+
+VeKtors provides three standard matrix norms:
+
+```kotlin
+val frobenius = a.frobeniusNorm()
+val one = a.oneNorm()
+val infinity = a.infinityNorm()
+```
+
+- **Frobenius norm:** Square root of the sum of squared matrix entries.
+- **One norm:** Maximum absolute column sum.
+- **Infinity norm:** Maximum absolute row sum.
+
+Norms support square and rectangular matrices.
+
+These operations are also useful for measuring numerical error in factorisations and linear-system solutions.
+
+For example, QR reconstruction error can be estimated using:
+
+```kotlin
+val barcode = a.qr
+val reconstructed = barcode.Q * barcode.R
+
+val error = (a - reconstructed).frobeniusNorm()
+val relativeError = error / a.frobeniusNorm()
+```
+
+The relative-error expression assumes a nonzero matrix norm.
 
 #### Rank and row reduction
 
@@ -142,7 +247,11 @@ val free = result.freeColumns
 val rankFromReduction = result.rank
 ```
 
-Both `rank()` and `rref()` accept an optional tolerance (default `1e-6f`) for numerical pivot detection. The tolerance is applied relative to the matrix's largest absolute entry. Results for nearly dependent rows can depend on the tolerance and floating-point precision; they should not be treated as exact symbolic results.
+Both `rank()` and `rref()` accept an optional tolerance, defaulting to `1e-6f`, for numerical pivot detection.
+
+The tolerance is applied relative to the largest absolute matrix entry. Results for nearly dependent rows can depend on the tolerance and floating-point precision.
+
+These are numerical algorithms, not symbolic row-reduction operations.
 
 ### Tensors
 
@@ -219,7 +328,7 @@ tensor[1][2][3].valueAt()
 // 123f
 ```
 
-For more explicit indexing, VeKtors provides `Index`, `Range`, `Slice`, and `All`.
+For explicit indexing, VeKtors provides `Index`, `Range`, `Slice`, and `All`.
 
 ```kotlin
 val view = tensor[
@@ -288,7 +397,9 @@ val permuted = tensor.T[2, 0, 1]
 
 For a tensor with shape `[2, 3, 4]`, this produces shape `[4, 2, 3]` while preserving the underlying values.
 
-Because `T` is defined on `TensorLike`, the same interface is available across immutable and mutable tensor implementations. Mutable permutations remain writable views over the original storage.
+Because `T` is defined on `TensorLike`, the same interface is available across immutable and mutable tensor implementations.
+
+Mutable permutations remain writable views over the original storage.
 
 ### Conversions
 
@@ -302,7 +413,9 @@ val vector = tensorFromVector.toVector()
 val matrix = tensorFromMatrix.toMatrix()
 ```
 
-Converting a tensor to a vector requires rank 1; converting to a matrix requires rank 2. Conversions create values of the requested type rather than exposing a mutable alias to the source.
+Converting a tensor to a vector requires rank 1; converting to a matrix requires rank 2.
+
+Conversions create values of the requested type rather than exposing a mutable alias to the source.
 
 ## Immutable and Mutable Types
 
@@ -316,7 +429,9 @@ VectorLike        MatrixLike        TensorLike
 MutableVector     MutableMatrix     MutableTensor
 ```
 
-The `*Like` interfaces define common read-only numerical behaviour shared by their concrete implementations. The concrete immutable and mutable types are separate implementations, not subclasses of one another.
+The `*Like` interfaces define common read-only numerical behaviour shared by their concrete implementations.
+
+The concrete immutable and mutable types are separate implementations, not subclasses of one another.
 
 Ordinary arithmetic generally produces immutable values, while mutable types provide explicit in-place operations.
 
@@ -328,7 +443,7 @@ mutableTensor *= 1.5f
 
 ## Design
 
-VeKtors currently follows a few broad design principles:
+VeKtors follows a few broad design principles:
 
 - Prefer idiomatic Kotlin APIs over conventions copied directly from other numerical libraries.
 - Keep immutable and mutable types distinct.
@@ -337,8 +452,28 @@ VeKtors currently follows a few broad design principles:
 - Use primitive storage internally.
 - Keep abstractions small until repeated use justifies them.
 - Optimise based on measured workloads rather than assumptions.
+- Keep the scope focused on numerical algebra.
 
-The current tensor implementation uses flat `FloatArray` storage with shape, stride, and offset metadata. Matrix factorisation instead makes an independent working copy, preserving the source matrix.
+Tensor storage uses flat `FloatArray` storage with shape, stride, and offset metadata.
+
+Matrix factorisations create independent working copies, preserving their source matrices.
+
+## Numerical Accuracy and Limitations
+
+VeKtors primarily uses single-precision `Float` values. Some numerical algorithms use `Double` intermediates to reduce accumulated rounding error.
+
+Numerical results are subject to floating-point precision and conditioning.
+
+In particular:
+
+- Ill-conditioned matrices can produce inaccurate solutions.
+- LU decomposition uses partial pivoting but is not guaranteed to be stable for every matrix.
+- QR decomposition uses Householder reflections without column pivoting.
+- Numerical rank and RREF depend on tolerance-based pivot selection.
+- Least-squares solving currently requires full column rank.
+- Exact-zero and tolerance-based singularity checks are not substitutes for general condition-number estimation.
+
+VeKtors is intended for practical numerical algebra, but it should not yet be treated as a substitute for mature, extensively validated numerical backends in precision-critical applications.
 
 ## Testing
 
@@ -351,30 +486,51 @@ VeKtors includes JUnit tests covering:
 - Axis permutation and slicing after permutation
 - Vector/matrix/tensor conversions
 - Matrix factories, trace, determinants, and inverses
-- Linear-system solving and multiple right-hand sides
+- Direct linear-system solving and multiple right-hand sides
 - LU factorisation, pivoting, and factor reconstruction
 - Matrix rank, numerical tolerances, and RREF
+- QR decomposition and orthogonality
+- Least-squares solving and residual properties
+- Matrix norms
+- Numerical reconstruction errors across different matrix scales
+- Mutation safety and reusable factorisation snapshots
 
-Tests are organised into focused files instead of a single `TensorTest.kt`. The suite is under active expansion; run the repository's Gradle tests for the current result.
+Tests are organised into focused classes rather than a single monolithic `TensorTest.kt`.
+
+Numerical accuracy tests check mathematical invariants such as:
+
+- `PA ≈ LU`
+- `A ≈ QR`
+- `QᵀQ ≈ I`
+- `Aᵀ(Ax − b) ≈ 0` for least-squares solutions
+
+These tests provide regression coverage but do not establish numerical stability for every possible input.
 
 ## Roadmap
 
-Near-term priorities for **v0.3-alpha**:
+VeKtors aims to remain a focused numerical algebra library rather than expand into a general scientific computing framework.
 
-- Finish regression testing and documentation for the expanded matrix API
-- Review numerical stability and tolerance handling
-- Stabilise the public API ahead of the release
+### Core priorities
 
-Potential **v0.4-alpha** work:
+- Maintain intuitive and consistent vector, matrix, and tensor APIs.
+- Improve numerical correctness and floating-point behaviour.
+- Expand general-purpose tensor operations, particularly tensor contraction and axis-wise operations.
+- Improve performance based on measured workloads.
+- Continue documentation, testing, and API refinement.
 
-- Householder QR decomposition
-- Least-squares solving for overdetermined systems
-- Matrix norms and further orthogonality operations
-- Null spaces and other row-reduction-based utilities
+### Possible future extensions
 
-Longer-term work may include tensor contraction, batched operations, axis-wise reductions, performance profiling, and SIMD where measurements justify it.
+- Null-space calculations
+- Batched matrix operations
+- Additional orthogonality utilities
+- Eigenvalue and singular-value decompositions where useful
+- Double-precision numerical types
 
-The API is still under active development, so these plans may change as the library evolves.
+These are possibilities rather than commitments.
+
+Numerical integration, differential equation solvers, statistics, optimisation frameworks, and machine learning systems are outside VeKtors' intended core scope.
+
+The long-term objective is a cohesive, reliable numerical algebra toolkit with a reasonably stable public API.
 
 ## License
 
@@ -396,4 +552,8 @@ tensor.T[2, 0, 1]
 
 is how VeKtors serves Tea.
 
-The LU factorisation helper is called `Pluto`. It handles `P`, `L`, and `U` — because apparently numerical linear algebra now has an astronomy department.
+The LU factorisation helper is called `Pluto`. It handles `P`, `L`, and `U` — because obviously numerical linear algebra now requires an astronomy department.
+
+And the QR decomposition helper is called `Barcode`.
+
+You can probably work out why.
