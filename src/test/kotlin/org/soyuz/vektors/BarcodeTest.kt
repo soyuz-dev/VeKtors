@@ -188,4 +188,178 @@ class BarcodeTest {
         assertEquals(1f, reconstructed[0, 0], 1e-4f)
         assertEquals(100f, matrix[0, 0])
     }
+
+
+    @Test
+    fun `least squares solves consistent tall system`() {
+        val a = Matrix(
+            floatArrayOf(1f, 0f),
+            floatArrayOf(0f, 1f),
+            floatArrayOf(1f, 1f),
+        )
+
+        val b = Vector(2f, 3f, 5f)
+        val x = a.solveLeastSquares(b)
+
+        assertEquals(2f, x[0], 1e-5f)
+        assertEquals(3f, x[1], 1e-5f)
+    }
+
+    @Test
+    fun `least squares solves inconsistent system`() {
+        val a = Matrix(
+            floatArrayOf(1f, 0f),
+            floatArrayOf(0f, 1f),
+            floatArrayOf(1f, 1f),
+        )
+
+        val b = Vector(1f, 2f, 4f)
+        val x = a.solveLeastSquares(b)
+
+        assertEquals(4f / 3f, x[0], 1e-5f)
+        assertEquals(7f / 3f, x[1], 1e-5f)
+    }
+
+    @Test
+    fun `least squares residual is orthogonal to columns`() {
+        val a = Matrix(
+            floatArrayOf(1f, 0f),
+            floatArrayOf(0f, 1f),
+            floatArrayOf(1f, 1f),
+        )
+
+        val b = Vector(1f, 2f, 4f)
+        val x = a.solveLeastSquares(b)
+
+        val residual = a * x - b
+        val normalResidual = a.T * residual
+
+        for (i in 0 until normalResidual.size) {
+            assertEquals(0f, normalResidual[i], 1e-5f)
+        }
+    }
+
+    @Test
+    fun `least squares agrees with square system solving`() {
+        val a = Matrix(
+            floatArrayOf(2f, 1f),
+            floatArrayOf(1f, 3f),
+        )
+
+        val b = Vector(5f, 7f)
+
+        val direct = a.solve(b)
+        val leastSquares = a.solveLeastSquares(b)
+
+        for (i in 0 until b.size) {
+            assertEquals(direct[i], leastSquares[i], 1e-5f)
+        }
+    }
+
+    @Test
+    fun `barcode can solve multiple least squares systems`() {
+        val a = Matrix(
+            floatArrayOf(1f, 0f),
+            floatArrayOf(0f, 1f),
+            floatArrayOf(1f, 1f),
+        )
+
+        val barcode = a.qr
+
+        val first = barcode.solveLeastSquares(
+            Vector(2f, 3f, 5f),
+        )
+
+        val second = barcode.solveLeastSquares(
+            Vector(4f, 1f, 5f),
+        )
+
+        assertEquals(2f, first[0], 1e-5f)
+        assertEquals(3f, first[1], 1e-5f)
+
+        assertEquals(4f, second[0], 1e-5f)
+        assertEquals(1f, second[1], 1e-5f)
+    }
+
+    @Test
+    fun `least squares rejects rank deficient system`() {
+        val a = Matrix(
+            floatArrayOf(1f, 0f),
+            floatArrayOf(2f, 0f),
+            floatArrayOf(3f, 0f),
+        )
+
+        assertThrows(IllegalArgumentException::class.java) {
+            a.solveLeastSquares(Vector(1f, 2f, 3f))
+        }
+    }
+
+    @Test
+    fun `least squares tolerance controls near singularity`() {
+        val a = Matrix.diagonal(1f, 1e-5f)
+        val b = Vector(2f, 3e-5f)
+
+        val x = a.solveLeastSquares(b, tolerance = 1e-6f)
+
+        assertEquals(2f, x[0], 1e-4f)
+        assertEquals(3f, x[1], 1e-4f)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            a.solveLeastSquares(b, tolerance = 1e-4f)
+        }
+    }
+
+    @Test
+    fun `least squares rejects mismatched dimensions`() {
+        val a = Matrix(3, 2) { row, column ->
+            if (row == column) 1f else 0f
+        }
+
+        assertThrows(IllegalArgumentException::class.java) {
+            a.solveLeastSquares(Vector(1f, 2f))
+        }
+    }
+
+    @Test
+    fun `least squares rejects invalid tolerance`() {
+        val a = Matrix.identity(2)
+        val b = Vector(1f, 2f)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            a.solveLeastSquares(b, -1f)
+        }
+
+        assertThrows(IllegalArgumentException::class.java) {
+            a.solveLeastSquares(b, Float.NaN)
+        }
+    }
+
+    @Test
+    fun `least squares rejects non finite right hand side`() {
+        val a = Matrix.identity(2)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            a.solveLeastSquares(Vector(1f, Float.NaN))
+        }
+    }
+
+    @Test
+    fun `least squares does not mutate original matrix`() {
+        val a = MutableMatrix(
+            floatArrayOf(1f, 0f),
+            floatArrayOf(0f, 1f),
+            floatArrayOf(1f, 1f),
+        )
+
+        val barcode = a.qr
+
+        a[0, 0] = 100f
+
+        val x = barcode.solveLeastSquares(Vector(2f, 3f, 5f))
+
+        assertEquals(2f, x[0], 1e-5f)
+        assertEquals(3f, x[1], 1e-5f)
+        assertEquals(100f, a[0, 0])
+    }
+
 }

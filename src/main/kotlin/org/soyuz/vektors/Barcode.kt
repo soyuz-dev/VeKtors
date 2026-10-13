@@ -56,6 +56,86 @@ class Barcode private constructor(
             }
         }
 
+
+    fun solveLeastSquares(
+        b: VectorLike,
+        tolerance: Float = 1e-6f,
+    ): Vector {
+        require(b.size == rows) {
+            "Vector size ${b.size} must match matrix row count $rows"
+        }
+        require(tolerance.isFinite() && tolerance >= 0f) {
+            "Tolerance must be finite and non-negative"
+        }
+
+        val m = rows
+        val n = columns
+
+        val y = DoubleArray(m) { b[it].toDouble() }
+
+        require(y.all { it.isFinite() }) {
+            "Right-hand side must contain only finite values"
+        }
+
+        // Apply Q^T to b using the stored Householder reflectors.
+        for (k in 0 until n) {
+            val factor = tau[k]
+            if (factor == 0.0) continue
+
+            var dot = y[k]
+
+            for (row in k + 1 until m) {
+                dot += data[row][k] * y[row]
+            }
+
+            dot *= factor
+            y[k] -= dot
+
+            for (row in k + 1 until m) {
+                y[row] -= data[row][k] * dot
+            }
+        }
+
+        // Use the largest diagonal magnitude as the reference scale.
+        var scale = 0.0
+
+        for (i in 0 until n) {
+            val magnitude = kotlin.math.abs(data[i][i])
+            if (magnitude > scale) scale = magnitude
+        }
+
+        require(scale > 0.0) {
+            "Matrix does not have full column rank"
+        }
+
+        val threshold = tolerance.toDouble() * scale
+        val x = DoubleArray(n)
+
+        // Solve Rx = Q^T b by back-substitution.
+        for (row in n - 1 downTo 0) {
+            val diagonal = data[row][row]
+
+            require(kotlin.math.abs(diagonal) > threshold) {
+                "Matrix is rank-deficient or numerically singular"
+            }
+
+            var value = y[row]
+
+            for (column in row + 1 until n) {
+                value -= data[row][column] * x[column]
+            }
+
+            x[row] = value / diagonal
+        }
+
+        require(x.all { it.isFinite() && it.toFloat().isFinite() }) {
+            "Least-squares solution cannot be represented with finite Float values"
+        }
+
+        return Vector(*FloatArray(n) { x[it].toFloat() })
+    }
+
+
     companion object {
         operator fun invoke(matrix: MatrixLike): Barcode {
             require(matrix.rows >= matrix.columns) {

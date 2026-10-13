@@ -143,6 +143,12 @@ interface MatrixLike {
 
     fun solve(b: VectorLike): Vector = lu.solve(b)
 
+
+    fun solveLeastSquares(
+        b: VectorLike,
+        tolerance: Float = 1e-6f,
+    ): Vector = qr.solveLeastSquares(b, tolerance)
+
     fun solve(b: MatrixLike): Matrix = lu.solve(b)
 
 
