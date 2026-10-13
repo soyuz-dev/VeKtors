@@ -253,5 +253,71 @@ interface MatrixLike {
         )
     }
 
+    fun frobeniusNorm(): Float {
+        var sum = 0.0
+
+        for (row in 0 until rows) {
+            for (column in 0 until columns) {
+                val value = this[row, column]
+
+                require(value.isFinite()) {
+                    "Matrix must contain only finite values"
+                }
+
+                val doubleValue = value.toDouble()
+                sum += doubleValue * doubleValue
+            }
+        }
+
+        return kotlin.math.sqrt(sum).toFloat()
+    }
+
+    fun oneNorm(): Float {
+        var maximum = 0.0
+
+        for (column in 0 until columns) {
+            var sum = 0.0
+
+            for (row in 0 until rows) {
+                val value = this[row, column]
+
+                require(value.isFinite()) {
+                    "Matrix must contain only finite values"
+                }
+
+                sum += kotlin.math.abs(value.toDouble())
+            }
+
+            if (sum > maximum) {
+                maximum = sum
+            }
+        }
+
+        return maximum.toFloat()
+    }
+
+    fun infinityNorm(): Float {
+        var maximum = 0.0
+
+        for (row in 0 until rows) {
+            var sum = 0.0
+
+            for (column in 0 until columns) {
+                val value = this[row, column]
+
+                require(value.isFinite()) {
+                    "Matrix must contain only finite values"
+                }
+
+                sum += kotlin.math.abs(value.toDouble())
+            }
+
+            if (sum > maximum) {
+                maximum = sum
+            }
+        }
+
+        return maximum.toFloat()
+    }
 
 }
