@@ -134,6 +134,9 @@ interface MatrixLike {
     val lu: Pluto
         get() = Pluto(this)
 
+    val qr: Barcode
+        get() = Barcode(this)
+
     fun determinant(): Float = lu.determinant
 
     fun inverse(): Matrix = lu.inverse
