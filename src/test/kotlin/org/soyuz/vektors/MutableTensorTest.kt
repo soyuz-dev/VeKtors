@@ -2,6 +2,10 @@ package org.soyuz.vektors
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import org.soyuz.vektors.tensor.Index
+import org.soyuz.vektors.tensor.MutableTensor
+import org.soyuz.vektors.tensor.Range
+import org.soyuz.vektors.tensor.Slice
 
 class MutableTensorTest {
     @Test

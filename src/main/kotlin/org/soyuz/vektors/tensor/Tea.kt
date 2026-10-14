@@ -1,4 +1,4 @@
-package org.soyuz.vektors
+package org.soyuz.vektors.tensor
 
 class Tea<T : TensorLike> internal constructor(
     private val permute: (IntArray) -> T,

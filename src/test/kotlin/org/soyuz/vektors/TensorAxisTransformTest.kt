@@ -4,6 +4,10 @@ package org.soyuz.vektors
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
+import org.soyuz.vektors.tensor.All
+import org.soyuz.vektors.tensor.MutableTensor
+import org.soyuz.vektors.tensor.Slice
+import org.soyuz.vektors.tensor.Tensor
 
 class TensorAxisTransformTest {
 

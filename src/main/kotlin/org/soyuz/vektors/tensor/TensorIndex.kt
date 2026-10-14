@@ -1,4 +1,4 @@
-package org.soyuz.vektors
+package org.soyuz.vektors.tensor
 
 sealed interface TensorIndex
 

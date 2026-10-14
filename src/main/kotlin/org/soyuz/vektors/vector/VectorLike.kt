@@ -1,4 +1,4 @@
-package org.soyuz.vektors
+package org.soyuz.vektors.vector
 
 import kotlin.math.acos
 import kotlin.math.sqrt

@@ -1,5 +1,4 @@
-package org.soyuz.vektors
-
+package org.soyuz.vektors.tensor
 
 
 class Tensor private constructor(

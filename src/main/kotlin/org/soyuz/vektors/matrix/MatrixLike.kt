@@ -1,6 +1,9 @@
-package org.soyuz.vektors
+package org.soyuz.vektors.matrix
 
+import org.soyuz.vektors.vector.VectorLike
+import org.soyuz.vektors.vector.Vector
 import kotlin.math.abs
+import kotlin.math.sqrt
 
 interface MatrixLike {
     val rows: Int
@@ -176,7 +179,7 @@ interface MatrixLike {
 
         for (row in data) {
             for (value in row) {
-                val magnitude = kotlin.math.abs(value)
+                val magnitude = abs(value)
                 if (magnitude > scale) scale = magnitude
             }
         }
@@ -204,14 +207,14 @@ interface MatrixLike {
 
             for (row in pivotRow + 1 until rows) {
                 if (
-                    kotlin.math.abs(data[row][column]) >
-                    kotlin.math.abs(data[pivot][column])
+                    abs(data[row][column]) >
+                    abs(data[pivot][column])
                 ) {
                     pivot = row
                 }
             }
 
-            if (kotlin.math.abs(data[pivot][column]) <= tolerance) {
+            if (abs(data[pivot][column]) <= tolerance) {
                 continue
             }
 
@@ -247,7 +250,7 @@ interface MatrixLike {
         return RowReduction(
             Matrix(rows, columns) { row, column ->
                 val value = data[row][column]
-                if (kotlin.math.abs(value) <= tolerance) 0f else value
+                if (abs(value) <= tolerance) 0f else value
             },
             pivotColumns,
         )
@@ -269,7 +272,7 @@ interface MatrixLike {
             }
         }
 
-        return kotlin.math.sqrt(sum).toFloat()
+        return sqrt(sum).toFloat()
     }
 
     fun oneNorm(): Float {
@@ -285,7 +288,7 @@ interface MatrixLike {
                     "Matrix must contain only finite values"
                 }
 
-                sum += kotlin.math.abs(value.toDouble())
+                sum += abs(value.toDouble())
             }
 
             if (sum > maximum) {
@@ -309,7 +312,7 @@ interface MatrixLike {
                     "Matrix must contain only finite values"
                 }
 
-                sum += kotlin.math.abs(value.toDouble())
+                sum += abs(value.toDouble())
             }
 
             if (sum > maximum) {

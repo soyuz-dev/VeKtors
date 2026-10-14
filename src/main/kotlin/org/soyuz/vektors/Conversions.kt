@@ -1,5 +1,12 @@
 package org.soyuz.vektors
 
+import org.soyuz.vektors.matrix.Matrix
+import org.soyuz.vektors.matrix.MatrixLike
+import org.soyuz.vektors.tensor.Tensor
+import org.soyuz.vektors.tensor.TensorLike
+import org.soyuz.vektors.vector.Vector
+import org.soyuz.vektors.vector.VectorLike
+
 fun VectorLike.toTensor(): Tensor =
     Tensor(listOf(size)) { (i) ->
         this[i]

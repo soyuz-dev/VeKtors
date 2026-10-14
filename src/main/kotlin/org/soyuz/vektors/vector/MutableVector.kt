@@ -1,4 +1,4 @@
-package org.soyuz.vektors
+package org.soyuz.vektors.vector
 
 class MutableVector private constructor(
     private val data: FloatArray,

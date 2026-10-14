@@ -1,4 +1,4 @@
-package org.soyuz.vektors
+package org.soyuz.vektors.matrix
 
 class RowReduction internal constructor(
     val matrix: Matrix,

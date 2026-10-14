@@ -3,6 +3,9 @@ package org.soyuz.vektors
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
+import org.soyuz.vektors.matrix.Matrix
+import org.soyuz.vektors.tensor.Tensor
+import org.soyuz.vektors.vector.Vector
 
 class ConversionTest {
     @Test

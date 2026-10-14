@@ -1,5 +1,7 @@
-package org.soyuz.vektors
+package org.soyuz.vektors.matrix
 
+import org.soyuz.vektors.vector.VectorLike
+import org.soyuz.vektors.vector.Vector
 import kotlin.math.abs
 
 class Pluto private constructor(

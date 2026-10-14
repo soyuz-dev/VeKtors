@@ -1,6 +1,8 @@
+package org.soyuz.vektors.matrix
 
-package org.soyuz.vektors
-
+import org.soyuz.vektors.vector.VectorLike
+import org.soyuz.vektors.vector.Vector
+import kotlin.math.abs
 import kotlin.math.sqrt
 
 class Barcode private constructor(
@@ -100,7 +102,7 @@ class Barcode private constructor(
         var scale = 0.0
 
         for (i in 0 until n) {
-            val magnitude = kotlin.math.abs(data[i][i])
+            val magnitude = abs(data[i][i])
             if (magnitude > scale) scale = magnitude
         }
 
@@ -115,7 +117,7 @@ class Barcode private constructor(
         for (row in n - 1 downTo 0) {
             val diagonal = data[row][row]
 
-            require(kotlin.math.abs(diagonal) > threshold) {
+            require(abs(diagonal) > threshold) {
                 "Matrix is rank-deficient or numerically singular"
             }
 

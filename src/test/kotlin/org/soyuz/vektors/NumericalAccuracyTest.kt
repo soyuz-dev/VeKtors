@@ -3,6 +3,11 @@ package org.soyuz.vektors
 
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.soyuz.vektors.matrix.Matrix
+import org.soyuz.vektors.matrix.MatrixLike
+import org.soyuz.vektors.matrix.MutableMatrix
+import org.soyuz.vektors.vector.Vector
+import org.soyuz.vektors.vector.VectorLike
 import kotlin.math.abs
 import kotlin.math.sqrt
 
@@ -361,7 +366,7 @@ class NumericalAccuracyTest {
         )
 
         val barcode = a.qr
-        val original = Matrix(a)
+        val original = org.soyuz.vektors.matrix.Matrix(a)
 
         a[0, 0] = 100f
 

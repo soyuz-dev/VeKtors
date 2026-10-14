@@ -1,4 +1,4 @@
-package org.soyuz.vektors
+package org.soyuz.vektors.tensor
 
 interface TensorLike {
     val shape: List<Int>
@@ -140,7 +140,7 @@ interface TensorLike {
                 ),
             )
         } else {
-            Tensor(resultShape) { indices ->
+            Tensor.Companion(resultShape) { indices ->
                 val sourceIndices = IntArray(rank)
                 var resultDimension = 0
 
@@ -166,7 +166,7 @@ interface TensorLike {
     ): Tensor {
         val resultShape = broadcastShape(shape, other.shape)
 
-        return Tensor(resultShape) { indices ->
+        return Tensor.Companion(resultShape) { indices ->
             operation(
                 valueAt(*broadcastIndices(indices, shape)),
                 other.valueAt(*broadcastIndices(indices, other.shape)),
@@ -367,7 +367,7 @@ interface TensorLike {
             FloatArray(shape[axis]) { result.valueAt(it) }
         }
 
-        return Tensor(shape) { indices ->
+        return Tensor.Companion(shape) { indices ->
             var flatIndex = 0
             var outputAxis = 0
 
@@ -395,7 +395,7 @@ interface TensorLike {
             i != axis
         }
 
-        return Tensor(resultShape) { indices ->
+        return Tensor.Companion(resultShape) { indices ->
             transform(axisSlice(axis, indices))
         }
     }
@@ -404,7 +404,7 @@ interface TensorLike {
         axis: Int,
         outerIndices: IntArray,
     ): Tensor {
-        return Tensor(listOf(shape[axis])) { indices ->
+        return Tensor.Companion(listOf(shape[axis])) { indices ->
             val sourceIndices = IntArray(rank)
             var outerAxis = 0
 
@@ -471,7 +471,7 @@ interface TensorLike {
 
         val resultShape = batchShape + listOf(m, n)
 
-        return Tensor(resultShape) { indices ->
+        return Tensor.Companion(resultShape) { indices ->
             val batchIndices = indices.copyOfRange(0, batchRank)
             val row = indices[batchRank]
             val column = indices[batchRank + 1]

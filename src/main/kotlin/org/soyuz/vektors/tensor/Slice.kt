@@ -1,4 +1,4 @@
-package org.soyuz.vektors
+package org.soyuz.vektors.tensor
 
 data class Slice(
     val start: Int = 0,
