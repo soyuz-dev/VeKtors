@@ -1,12 +1,7 @@
-package org.soyuz.vektors
+package org.soyuz.vektors.tensor
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.soyuz.vektors.tensor.Index
-import org.soyuz.vektors.tensor.MutableTensor
-import org.soyuz.vektors.tensor.Range
-import org.soyuz.vektors.tensor.Slice
-import org.soyuz.vektors.tensor.Tensor
 
 class TensorPermutationTest {
     @Test

@@ -1,11 +1,7 @@
+package org.soyuz.vektors.matrix
 
-package org.soyuz.vektors
-
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
-import org.soyuz.vektors.matrix.Matrix
-import org.soyuz.vektors.matrix.MutableMatrix
 
 class RowReductionTest {
 
@@ -13,13 +9,13 @@ class RowReductionTest {
     fun `identity matrix is already reduced`() {
         val result = Matrix.identity(3).rref()
 
-        assertEquals(3, result.rank)
-        assertEquals(listOf(0, 1, 2), result.pivotColumns)
-        assertEquals(emptyList<Int>(), result.freeColumns)
+        Assertions.assertEquals(3, result.rank)
+        Assertions.assertEquals(listOf(0, 1, 2), result.pivotColumns)
+        Assertions.assertEquals(emptyList<Int>(), result.freeColumns)
 
         for (row in 0 until 3) {
             for (column in 0 until 3) {
-                assertEquals(
+                Assertions.assertEquals(
                     if (row == column) 1f else 0f,
                     result.matrix[row, column],
                 )
@@ -45,7 +41,7 @@ class RowReductionTest {
 
         for (row in 0 until 3) {
             for (column in 0 until 3) {
-                assertEquals(
+                Assertions.assertEquals(
                     expected[row, column],
                     result.matrix[row, column],
                     1e-5f,
@@ -53,9 +49,9 @@ class RowReductionTest {
             }
         }
 
-        assertEquals(listOf(0, 1), result.pivotColumns)
-        assertEquals(listOf(2), result.freeColumns)
-        assertEquals(2, result.rank)
+        Assertions.assertEquals(listOf(0, 1), result.pivotColumns)
+        Assertions.assertEquals(listOf(2), result.freeColumns)
+        Assertions.assertEquals(2, result.rank)
     }
 
     @Test
@@ -67,14 +63,14 @@ class RowReductionTest {
 
         val result = matrix.rref()
 
-        assertEquals(2, result.rank)
-        assertEquals(listOf(0, 1), result.pivotColumns)
-        assertEquals(listOf(2, 3), result.freeColumns)
+        Assertions.assertEquals(2, result.rank)
+        Assertions.assertEquals(listOf(0, 1), result.pivotColumns)
+        Assertions.assertEquals(listOf(2, 3), result.freeColumns)
 
-        assertEquals(1f, result.matrix[0, 0], 1e-5f)
-        assertEquals(0f, result.matrix[0, 1], 1e-5f)
-        assertEquals(0f, result.matrix[1, 0], 1e-5f)
-        assertEquals(1f, result.matrix[1, 1], 1e-5f)
+        Assertions.assertEquals(1f, result.matrix[0, 0], 1e-5f)
+        Assertions.assertEquals(0f, result.matrix[0, 1], 1e-5f)
+        Assertions.assertEquals(0f, result.matrix[1, 0], 1e-5f)
+        Assertions.assertEquals(1f, result.matrix[1, 1], 1e-5f)
     }
 
     @Test
@@ -87,11 +83,11 @@ class RowReductionTest {
 
         val result = matrix.rref()
 
-        assertEquals(2, result.rank)
-        assertEquals(1f, result.matrix[0, 0], 1e-5f)
-        assertEquals(1f, result.matrix[1, 1], 1e-5f)
-        assertEquals(0f, result.matrix[2, 0], 1e-5f)
-        assertEquals(0f, result.matrix[2, 1], 1e-5f)
+        Assertions.assertEquals(2, result.rank)
+        Assertions.assertEquals(1f, result.matrix[0, 0], 1e-5f)
+        Assertions.assertEquals(1f, result.matrix[1, 1], 1e-5f)
+        Assertions.assertEquals(0f, result.matrix[2, 0], 1e-5f)
+        Assertions.assertEquals(0f, result.matrix[2, 1], 1e-5f)
     }
 
     @Test
@@ -99,13 +95,13 @@ class RowReductionTest {
         val matrix = Matrix(3, 4) { _, _ -> 0f }
         val result = matrix.rref()
 
-        assertEquals(0, result.rank)
-        assertEquals(emptyList<Int>(), result.pivotColumns)
-        assertEquals(listOf(0, 1, 2, 3), result.freeColumns)
+        Assertions.assertEquals(0, result.rank)
+        Assertions.assertEquals(emptyList<Int>(), result.pivotColumns)
+        Assertions.assertEquals(listOf(0, 1, 2, 3), result.freeColumns)
 
         for (row in 0 until 3) {
             for (column in 0 until 4) {
-                assertEquals(0f, result.matrix[row, column])
+                Assertions.assertEquals(0f, result.matrix[row, column])
             }
         }
     }
@@ -120,13 +116,13 @@ class RowReductionTest {
 
         val result = matrix.rref()
 
-        assertEquals(listOf(1, 2), result.pivotColumns)
-        assertEquals(listOf(0), result.freeColumns)
-        assertEquals(2, result.rank)
+        Assertions.assertEquals(listOf(1, 2), result.pivotColumns)
+        Assertions.assertEquals(listOf(0), result.freeColumns)
+        Assertions.assertEquals(2, result.rank)
 
-        assertEquals(1f, result.matrix[0, 1], 1e-5f)
-        assertEquals(0f, result.matrix[0, 2], 1e-5f)
-        assertEquals(1f, result.matrix[1, 2], 1e-5f)
+        Assertions.assertEquals(1f, result.matrix[0, 1], 1e-5f)
+        Assertions.assertEquals(0f, result.matrix[0, 2], 1e-5f)
+        Assertions.assertEquals(1f, result.matrix[1, 2], 1e-5f)
     }
 
     @Test
@@ -140,9 +136,9 @@ class RowReductionTest {
 
         matrix[1, 1] = 5f
 
-        assertEquals(1, result.rank)
-        assertEquals(2, matrix.rank())
-        assertEquals(0f, result.matrix[1, 1])
+        Assertions.assertEquals(1, result.rank)
+        Assertions.assertEquals(2, matrix.rank())
+        Assertions.assertEquals(0f, result.matrix[1, 1])
     }
 
     @Test
@@ -155,11 +151,11 @@ class RowReductionTest {
         val first = matrix.rref()
         val second = first.matrix.rref()
 
-        assertEquals(first.pivotColumns, second.pivotColumns)
+        Assertions.assertEquals(first.pivotColumns, second.pivotColumns)
 
         for (row in 0 until matrix.rows) {
             for (column in 0 until matrix.columns) {
-                assertEquals(
+                Assertions.assertEquals(
                     first.matrix[row, column],
                     second.matrix[row, column],
                     1e-5f,
@@ -181,7 +177,7 @@ class RowReductionTest {
         )
 
         for (matrix in matrices) {
-            assertEquals(matrix.rank(), matrix.rref().rank)
+            Assertions.assertEquals(matrix.rank(), matrix.rref().rank)
         }
     }
 
@@ -195,11 +191,11 @@ class RowReductionTest {
         val original = matrix.rref()
         val scaled = (matrix * 1e-8f).rref()
 
-        assertEquals(original.pivotColumns, scaled.pivotColumns)
+        Assertions.assertEquals(original.pivotColumns, scaled.pivotColumns)
 
         for (row in 0 until matrix.rows) {
             for (column in 0 until matrix.columns) {
-                assertEquals(
+                Assertions.assertEquals(
                     original.matrix[row, column],
                     scaled.matrix[row, column],
                     1e-5f,
@@ -212,19 +208,19 @@ class RowReductionTest {
     fun `tolerance controls numerical rank`() {
         val matrix = Matrix.diagonal(1f, 1e-5f)
 
-        assertEquals(2, matrix.rref(1e-6f).rank)
-        assertEquals(1, matrix.rref(1e-4f).rank)
+        Assertions.assertEquals(2, matrix.rref(1e-6f).rank)
+        Assertions.assertEquals(1, matrix.rref(1e-4f).rank)
     }
 
     @Test
     fun `RREF rejects invalid tolerance`() {
         val matrix = Matrix.identity(2)
 
-        assertThrows(IllegalArgumentException::class.java) {
+        Assertions.assertThrows(IllegalArgumentException::class.java) {
             matrix.rref(-1f)
         }
 
-        assertThrows(IllegalArgumentException::class.java) {
+        Assertions.assertThrows(IllegalArgumentException::class.java) {
             matrix.rref(Float.NaN)
         }
     }
@@ -236,7 +232,7 @@ class RowReductionTest {
             floatArrayOf(0f, 1f),
         )
 
-        assertThrows(IllegalArgumentException::class.java) {
+        Assertions.assertThrows(IllegalArgumentException::class.java) {
             matrix.rref()
         }
     }

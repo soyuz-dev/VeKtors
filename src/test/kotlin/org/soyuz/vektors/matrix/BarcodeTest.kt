@@ -1,12 +1,7 @@
+package org.soyuz.vektors.matrix
 
-package org.soyuz.vektors
-
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
-import org.soyuz.vektors.matrix.Matrix
-import org.soyuz.vektors.matrix.MatrixLike
-import org.soyuz.vektors.matrix.MutableMatrix
 import org.soyuz.vektors.vector.Vector
 
 class BarcodeTest {
@@ -18,12 +13,12 @@ class BarcodeTest {
         val qr = matrix.qr
         val reconstructed = qr.Q * qr.R
 
-        assertEquals(matrix.rows, reconstructed.rows)
-        assertEquals(matrix.columns, reconstructed.columns)
+        Assertions.assertEquals(matrix.rows, reconstructed.rows)
+        Assertions.assertEquals(matrix.columns, reconstructed.columns)
 
         for (row in 0 until matrix.rows) {
             for (column in 0 until matrix.columns) {
-                assertEquals(
+                Assertions.assertEquals(
                     matrix[row, column],
                     reconstructed[row, column],
                     tolerance,
@@ -40,7 +35,7 @@ class BarcodeTest {
 
         for (row in 0 until product.rows) {
             for (column in 0 until product.columns) {
-                assertEquals(
+                Assertions.assertEquals(
                     if (row == column) 1f else 0f,
                     product[row, column],
                     tolerance,
@@ -91,10 +86,10 @@ class BarcodeTest {
 
         val qr = matrix.qr
 
-        assertEquals(5, qr.Q.rows)
-        assertEquals(3, qr.Q.columns)
-        assertEquals(3, qr.R.rows)
-        assertEquals(3, qr.R.columns)
+        Assertions.assertEquals(5, qr.Q.rows)
+        Assertions.assertEquals(3, qr.Q.columns)
+        Assertions.assertEquals(3, qr.R.rows)
+        Assertions.assertEquals(3, qr.R.columns)
     }
 
     @Test
@@ -110,7 +105,7 @@ class BarcodeTest {
 
         for (row in 0 until r.rows) {
             for (column in 0 until row) {
-                assertEquals(0f, r[row, column])
+                Assertions.assertEquals(0f, r[row, column])
             }
         }
     }
@@ -159,7 +154,7 @@ class BarcodeTest {
     fun `QR rejects wide matrices`() {
         val matrix = Matrix(2, 3) { _, _ -> 1f }
 
-        assertThrows(IllegalArgumentException::class.java) {
+        Assertions.assertThrows(IllegalArgumentException::class.java) {
             matrix.qr
         }
     }
@@ -171,7 +166,7 @@ class BarcodeTest {
             floatArrayOf(2f, 3f),
         )
 
-        assertThrows(IllegalArgumentException::class.java) {
+        Assertions.assertThrows(IllegalArgumentException::class.java) {
             matrix.qr
         }
     }
@@ -189,8 +184,8 @@ class BarcodeTest {
 
         matrix[0, 0] = 100f
 
-        assertEquals(1f, reconstructed[0, 0], 1e-4f)
-        assertEquals(100f, matrix[0, 0])
+        Assertions.assertEquals(1f, reconstructed[0, 0], 1e-4f)
+        Assertions.assertEquals(100f, matrix[0, 0])
     }
 
 
@@ -202,11 +197,11 @@ class BarcodeTest {
             floatArrayOf(1f, 1f),
         )
 
-        val b = Vector(2f, 3f, 5f)
+        val b = Vector.Companion(2f, 3f, 5f)
         val x = a.solveLeastSquares(b)
 
-        assertEquals(2f, x[0], 1e-5f)
-        assertEquals(3f, x[1], 1e-5f)
+        Assertions.assertEquals(2f, x[0], 1e-5f)
+        Assertions.assertEquals(3f, x[1], 1e-5f)
     }
 
     @Test
@@ -217,11 +212,11 @@ class BarcodeTest {
             floatArrayOf(1f, 1f),
         )
 
-        val b = Vector(1f, 2f, 4f)
+        val b = Vector.Companion(1f, 2f, 4f)
         val x = a.solveLeastSquares(b)
 
-        assertEquals(4f / 3f, x[0], 1e-5f)
-        assertEquals(7f / 3f, x[1], 1e-5f)
+        Assertions.assertEquals(4f / 3f, x[0], 1e-5f)
+        Assertions.assertEquals(7f / 3f, x[1], 1e-5f)
     }
 
     @Test
@@ -232,14 +227,14 @@ class BarcodeTest {
             floatArrayOf(1f, 1f),
         )
 
-        val b = Vector(1f, 2f, 4f)
+        val b = Vector.Companion(1f, 2f, 4f)
         val x = a.solveLeastSquares(b)
 
         val residual = a * x - b
         val normalResidual = a.T * residual
 
         for (i in 0 until normalResidual.size) {
-            assertEquals(0f, normalResidual[i], 1e-5f)
+            Assertions.assertEquals(0f, normalResidual[i], 1e-5f)
         }
     }
 
@@ -250,13 +245,13 @@ class BarcodeTest {
             floatArrayOf(1f, 3f),
         )
 
-        val b = Vector(5f, 7f)
+        val b = Vector.Companion(5f, 7f)
 
         val direct = a.solve(b)
         val leastSquares = a.solveLeastSquares(b)
 
         for (i in 0 until b.size) {
-            assertEquals(direct[i], leastSquares[i], 1e-5f)
+            Assertions.assertEquals(direct[i], leastSquares[i], 1e-5f)
         }
     }
 
@@ -271,18 +266,18 @@ class BarcodeTest {
         val barcode = a.qr
 
         val first = barcode.solveLeastSquares(
-            Vector(2f, 3f, 5f),
+            Vector.Companion(2f, 3f, 5f),
         )
 
         val second = barcode.solveLeastSquares(
-            Vector(4f, 1f, 5f),
+            Vector.Companion(4f, 1f, 5f),
         )
 
-        assertEquals(2f, first[0], 1e-5f)
-        assertEquals(3f, first[1], 1e-5f)
+        Assertions.assertEquals(2f, first[0], 1e-5f)
+        Assertions.assertEquals(3f, first[1], 1e-5f)
 
-        assertEquals(4f, second[0], 1e-5f)
-        assertEquals(1f, second[1], 1e-5f)
+        Assertions.assertEquals(4f, second[0], 1e-5f)
+        Assertions.assertEquals(1f, second[1], 1e-5f)
     }
 
     @Test
@@ -293,22 +288,22 @@ class BarcodeTest {
             floatArrayOf(3f, 0f),
         )
 
-        assertThrows(IllegalArgumentException::class.java) {
-            a.solveLeastSquares(Vector(1f, 2f, 3f))
+        Assertions.assertThrows(IllegalArgumentException::class.java) {
+            a.solveLeastSquares(Vector.Companion(1f, 2f, 3f))
         }
     }
 
     @Test
     fun `least squares tolerance controls near singularity`() {
         val a = Matrix.diagonal(1f, 1e-5f)
-        val b = Vector(2f, 3e-5f)
+        val b = Vector.Companion(2f, 3e-5f)
 
         val x = a.solveLeastSquares(b, tolerance = 1e-6f)
 
-        assertEquals(2f, x[0], 1e-4f)
-        assertEquals(3f, x[1], 1e-4f)
+        Assertions.assertEquals(2f, x[0], 1e-4f)
+        Assertions.assertEquals(3f, x[1], 1e-4f)
 
-        assertThrows(IllegalArgumentException::class.java) {
+        Assertions.assertThrows(IllegalArgumentException::class.java) {
             a.solveLeastSquares(b, tolerance = 1e-4f)
         }
     }
@@ -319,21 +314,21 @@ class BarcodeTest {
             if (row == column) 1f else 0f
         }
 
-        assertThrows(IllegalArgumentException::class.java) {
-            a.solveLeastSquares(Vector(1f, 2f))
+        Assertions.assertThrows(IllegalArgumentException::class.java) {
+            a.solveLeastSquares(Vector.Companion(1f, 2f))
         }
     }
 
     @Test
     fun `least squares rejects invalid tolerance`() {
         val a = Matrix.identity(2)
-        val b = Vector(1f, 2f)
+        val b = Vector.Companion(1f, 2f)
 
-        assertThrows(IllegalArgumentException::class.java) {
+        Assertions.assertThrows(IllegalArgumentException::class.java) {
             a.solveLeastSquares(b, -1f)
         }
 
-        assertThrows(IllegalArgumentException::class.java) {
+        Assertions.assertThrows(IllegalArgumentException::class.java) {
             a.solveLeastSquares(b, Float.NaN)
         }
     }
@@ -342,8 +337,8 @@ class BarcodeTest {
     fun `least squares rejects non finite right hand side`() {
         val a = Matrix.identity(2)
 
-        assertThrows(IllegalArgumentException::class.java) {
-            a.solveLeastSquares(Vector(1f, Float.NaN))
+        Assertions.assertThrows(IllegalArgumentException::class.java) {
+            a.solveLeastSquares(Vector.Companion(1f, Float.NaN))
         }
     }
 
@@ -359,11 +354,11 @@ class BarcodeTest {
 
         a[0, 0] = 100f
 
-        val x = barcode.solveLeastSquares(Vector(2f, 3f, 5f))
+        val x = barcode.solveLeastSquares(Vector.Companion(2f, 3f, 5f))
 
-        assertEquals(2f, x[0], 1e-5f)
-        assertEquals(3f, x[1], 1e-5f)
-        assertEquals(100f, a[0, 0])
+        Assertions.assertEquals(2f, x[0], 1e-5f)
+        Assertions.assertEquals(3f, x[1], 1e-5f)
+        Assertions.assertEquals(100f, a[0, 0])
     }
 
 }
