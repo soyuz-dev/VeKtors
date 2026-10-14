@@ -331,4 +331,89 @@ interface TensorLike {
         return Tensor.fromFlat(resultShape, result)
     }
 
+    fun sum(axis: Int): Tensor =
+        reduceAxis(axis) { indices, length ->
+            var result = 0.0
+
+            for (i in 0 until length) {
+                indices[axis] = i
+                result += valueAt(*indices)
+            }
+
+            result.toFloat()
+        }
+
+    fun mean(axis: Int): Tensor =
+        reduceAxis(axis) { indices, length ->
+            var result = 0.0
+
+            for (i in 0 until length) {
+                indices[axis] = i
+                result += valueAt(*indices)
+            }
+
+            (result / length).toFloat()
+        }
+
+    fun min(axis: Int): Tensor =
+        reduceAxis(axis) { indices, length ->
+            indices[axis] = 0
+            var result = valueAt(*indices)
+
+            for (i in 1 until length) {
+                indices[axis] = i
+                val value = valueAt(*indices)
+
+                if (value < result) {
+                    result = value
+                }
+            }
+
+            result
+        }
+
+    fun max(axis: Int): Tensor =
+        reduceAxis(axis) { indices, length ->
+            indices[axis] = 0
+            var result = valueAt(*indices)
+
+            for (i in 1 until length) {
+                indices[axis] = i
+                val value = valueAt(*indices)
+
+                if (value > result) {
+                    result = value
+                }
+            }
+
+            result
+        }
+
+    private fun reduceAxis(
+        axis: Int,
+        reduce: (IntArray, Int) -> Float,
+    ): Tensor {
+        require(axis in 0 until rank) {
+            "Axis $axis is out of bounds for tensor of rank $rank"
+        }
+
+        val resultShape = shape.filterIndexed { index, _ ->
+            index != axis
+        }
+
+        return Tensor(resultShape) { outputIndices ->
+            val sourceIndices = IntArray(rank)
+            var outputAxis = 0
+
+            for (sourceAxis in 0 until rank) {
+                if (sourceAxis != axis) {
+                    sourceIndices[sourceAxis] = outputIndices[outputAxis++]
+                }
+            }
+
+            reduce(sourceIndices, shape[axis])
+        }
+    }
+
+
 }
