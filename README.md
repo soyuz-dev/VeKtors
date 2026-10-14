@@ -1,4 +1,4 @@
-# VeKtors v0.4-alpha
+# VeKtors v0.5-alpha
 
 A small, Kotlin-first numerical computing library for vectors, matrices, tensors, and related numerical operations.
 
@@ -6,11 +6,13 @@ VeKtors is designed for expressive numerical code in areas such as simulations, 
 
 ## Current Status
 
-VeKtors is in **early development**. The core numerical types and several linear algebra operations are implemented, but the API is still evolving and breaking changes are possible.
+VeKtors is in **early development**. The core numerical types, practical linear algebra operations, and general tensor algebra operations are implemented, but the API is still evolving and breaking changes are possible.
 
-Current published release: **v0.4-alpha**
+Current published release: **v0.5-alpha**
 
-This release expands VeKtors' numerical linear algebra capabilities with Householder QR decomposition, least-squares solving, matrix norms, and numerical accuracy testing.
+This release expands VeKtors' tensor algebra capabilities with general tensor contraction, outer products, batched matrix multiplication, axis-wise reductions, and general axis-wise transformations.
+
+It builds on the numerical linear algebra features introduced in v0.3-alpha and v0.4-alpha.
 
 VeKtors currently uses `Float` for its public numerical types, with `Double` intermediates in selected numerical algorithms.
 
@@ -30,6 +32,18 @@ Immutable and mutable vectors with support for:
 - Projection
 - Linear interpolation
 - Mapping and reductions
+
+```kotlin
+val a = Vector(1f, 2f, 3f)
+val b = Vector(4f, 5f, 6f)
+
+val sum = a + b
+val dot = a dot b
+val magnitude = a.magnitude()
+val normalised = a.normalized()
+val projection = a.projected(b)
+val interpolated = a.lerp(b, 0.5f)
+```
 
 ### Matrices
 
@@ -255,7 +269,7 @@ These are numerical algorithms, not symbolic row-reduction operations.
 
 ### Tensors
 
-VeKtors provides arbitrary-rank tensors backed by flat `FloatArray` storage.
+VeKtors provides arbitrary-rank tensors backed by flat `FloatArray` storage, with shape, stride, and offset metadata.
 
 ```kotlin
 val tensor = Tensor(2, 3, 4) { (x, y, z) ->
@@ -277,18 +291,24 @@ tensor.valueAt(1, 2, 3)
 // 123f
 ```
 
-Tensor operations currently include:
+Tensor operations include:
 
 - Elementwise and scalar arithmetic
 - Broadcasting
-- Mapping and reductions
+- Elementwise mapping
+- Whole-tensor reductions
+- Axis-wise reductions
+- General axis-wise transformations
+- General tensor contraction
+- Outer products
+- Matrix multiplication with batch broadcasting
 - Reshaping
 - Scalar tensors
 - Indexed views
 - Strided slicing
 - Axis permutation
 
-### Broadcasting
+#### Broadcasting
 
 Tensor elementwise operations support broadcasting between compatible shapes.
 
@@ -305,6 +325,250 @@ val result = a + b
 ```
 
 Here, the shape `[3]` tensor is broadcast across the leading dimension of the `[2, 3]` tensor.
+
+Broadcasting follows trailing-dimension alignment. Two dimensions are compatible when they are equal or at least one has size 1.
+
+#### Tensor contraction
+
+VeKtors supports general tensor contraction between arbitrary-rank tensors.
+
+Contraction multiplies tensor entries and sums over specified pairs of axes.
+
+```kotlin
+val a = Tensor(2, 3) { (i, j) ->
+    (i * 3 + j + 1).toFloat()
+}
+
+val b = Tensor(3, 4) { (i, j) ->
+    (i * 4 + j + 1).toFloat()
+}
+
+val result = a.contract(
+    b,
+    axesA = intArrayOf(1),
+    axesB = intArrayOf(0),
+)
+
+// Result shape: [2, 4]
+```
+
+The axes in `axesA` and `axesB` are paired in their specified order. Each pair must have matching dimension sizes.
+
+The output dimensions consist of the uncontracted axes of the first tensor, followed by those of the second tensor, preserving their relative order.
+
+For example:
+
+```kotlin
+val a = Tensor(2, 3, 4) { 1f }
+val b = Tensor(3, 4, 5) { 2f }
+
+val result = a.contract(
+    b,
+    axesA = intArrayOf(1, 2),
+    axesB = intArrayOf(0, 1),
+)
+
+// Result shape: [2, 5]
+```
+
+Contraction supports:
+
+- One or multiple contracted axes
+- Arbitrary-rank operands
+- Scalar results
+- Uncontracted outer products
+- Sliced and permuted tensor views
+- Immutable and mutable tensor inputs
+
+Contracted axes must be unique within each operand. The number and sizes of paired axes must match.
+
+When all axes are contracted, the result is a rank-zero scalar tensor.
+
+Contraction currently prioritises a general, view-compatible implementation over specialised high-performance kernels.
+
+#### Outer products
+
+The outer product is a contraction with no contracted axes.
+
+VeKtors exposes it directly using the infix `outer` function:
+
+```kotlin
+val a = Tensor(3) { (i) ->
+    (i + 1).toFloat()
+}
+
+val b = Tensor(2) { (i) ->
+    (i + 4).toFloat()
+}
+
+val result = a outer b
+
+// Shape: [3, 2]
+```
+
+For arbitrary-rank tensors, the output shape is the concatenation of both operand shapes.
+
+```kotlin
+val a = Tensor(2, 3) { 1f }
+val b = Tensor(4, 5) { 2f }
+
+val result = a.outer(b)
+
+// Shape: [2, 3, 4, 5]
+```
+
+Both `a outer b` and `a.outer(b)` are supported.
+
+#### Batched matrix multiplication
+
+The infix `matmul` function performs matrix multiplication over the last two dimensions of each operand.
+
+Leading dimensions are interpreted as batch dimensions and broadcast using the same trailing-alignment rules as tensor elementwise operations.
+
+```kotlin
+val a = Tensor(10, 3, 4) { (batch, row, column) ->
+    (batch + row + column).toFloat()
+}
+
+val b = Tensor(10, 4, 5) { (batch, row, column) ->
+    (batch + row + column).toFloat()
+}
+
+val result = a matmul b
+
+// Shape: [10, 3, 5]
+```
+
+Batch dimensions need not be identical if they can be broadcast.
+
+| First tensor | Second tensor | Result |
+|---|---|---|
+| `[3, 4]` | `[4, 5]` | `[3, 5]` |
+| `[10, 3, 4]` | `[10, 4, 5]` | `[10, 3, 5]` |
+| `[1, 3, 4]` | `[10, 4, 5]` | `[10, 3, 5]` |
+| `[2, 1, 3, 4]` | `[1, 5, 4, 6]` | `[2, 5, 3, 6]` |
+
+Both operands must have rank at least 2, and their inner matrix dimensions must match.
+
+Vector and scalar operands are not currently accepted by `matmul`; general tensor contraction can be used for those cases.
+
+Tensor multiplication distinguishes three operations:
+
+```kotlin
+val elementwise = a * b
+val matrixProduct = a matmul b
+val outerProduct = a outer b
+```
+
+`*` remains elementwise multiplication with broadcasting. It is not overloaded to mean matrix multiplication for tensors.
+
+#### Axis-wise reductions
+
+In addition to whole-tensor reductions, VeKtors can reduce individual axes.
+
+```kotlin
+val tensor = Tensor(2, 3, 4) { (i, j, k) ->
+    (i + j + k).toFloat()
+}
+
+val sums = tensor.sum(axis = 1)
+val means = tensor.mean(axis = 1)
+val minima = tensor.min(axis = 1)
+val maxima = tensor.max(axis = 1)
+
+// All result shapes: [2, 4]
+```
+
+Axis-wise reduction removes the selected dimension while preserving the relative order of all remaining dimensions.
+
+For a rank-one tensor, reducing its only axis produces a rank-zero scalar tensor.
+
+The parameterless reduction methods remain available:
+
+```kotlin
+val total = tensor.sum()
+val average = tensor.mean()
+val minimum = tensor.min()
+val maximum = tensor.max()
+```
+
+These aggregate the entire tensor into a `Float`, rather than returning a tensor.
+
+#### General axis-wise transformations
+
+VeKtors provides two general operations for transforming one-dimensional slices along an axis.
+
+`mapAxis()` transforms each slice into another slice of the same length, preserving the original tensor shape.
+
+```kotlin
+val tensor = Tensor(2, 3) { (i, j) ->
+    (i * 3 + j + 1).toFloat()
+}
+
+val centred = tensor.mapAxis(axis = 1) { slice ->
+    val average = slice.mean()
+    slice.map { it - average }
+}
+
+// Shape: [2, 3]
+```
+
+The transformation receives a rank-one `TensorLike` and must return another rank-one tensor of the same length.
+
+`reduceAxis()` transforms each slice into a single `Float`, removing the selected axis.
+
+```kotlin
+val ranges = tensor.reduceAxis(axis = 1) { slice ->
+    slice.max() - slice.min()
+}
+
+// Shape: [2]
+```
+
+The standard axis-wise `sum`, `mean`, `min`, and `max` operations are built on this general reduction mechanism.
+
+Together, these operations provide three levels of transformation:
+
+| Operation | Input to callback | Output | Shape |
+|---|---|---|---|
+| `map()` | Scalar value | Scalar value | Preserved |
+| `mapAxis()` | One-dimensional slice | One-dimensional slice | Preserved |
+| `reduceAxis()` | One-dimensional slice | Scalar value | Selected axis removed |
+
+The axis-wise callbacks run once per slice.
+
+Both operations return independent immutable tensors and support sliced, permuted, and mutable inputs.
+
+The current implementation materialises one-dimensional slices for the callbacks instead of exposing writable views.
+
+#### Reshaping and scalar tensors
+
+Tensors can be reshaped when the total number of elements remains unchanged.
+
+```kotlin
+val tensor = Tensor(2, 3, 4) { 1f }
+
+val reshaped = tensor.reshape(6, 4)
+
+// Shape: [6, 4]
+```
+
+VeKtors also supports rank-zero tensors.
+
+```kotlin
+val scalar = Tensor.scalar(42f)
+
+scalar.shape
+// []
+
+scalar.rank
+// 0
+
+scalar.valueAt()
+// 42f
+```
+
+Scalar tensors are useful as the outputs of complete contractions and reductions.
 
 ### Indexing
 
@@ -385,6 +649,10 @@ view.setValueAt(
 
 Views are represented using shape, stride, and offset metadata over shared storage.
 
+General tensor operations, including contraction, batched matrix multiplication, and axis-wise transformations, work with these views through the common `TensorLike` interface.
+
+Ordinary arithmetic and transformation operations produce independent immutable results rather than writable aliases to their inputs.
+
 ### Axis Permutation and `T`
 
 `TensorLike` provides the `T` property for axis permutation.
@@ -441,6 +709,8 @@ mutableMatrix *= 2f
 mutableTensor *= 1.5f
 ```
 
+The distinction applies to general tensor algebra as well: operations on mutable tensors produce immutable results unless explicitly documented otherwise.
+
 ## Design
 
 VeKtors follows a few broad design principles:
@@ -450,11 +720,16 @@ VeKtors follows a few broad design principles:
 - Use lightweight read-only interfaces such as `VectorLike`, `MatrixLike`, and `TensorLike`.
 - Prefer views to unnecessary copies for tensor slicing and permutation.
 - Use primitive storage internally.
+- Express related operations through general abstractions where useful.
 - Keep abstractions small until repeated use justifies them.
 - Optimise based on measured workloads rather than assumptions.
 - Keep the scope focused on numerical algebra.
 
 Tensor storage uses flat `FloatArray` storage with shape, stride, and offset metadata.
+
+General tensor algebra operates through `TensorLike`, allowing the same functions to support contiguous tensors, non-contiguous views, and mutable tensors.
+
+Axis-wise operations share common slice-transformation mechanisms, while outer products reuse general tensor contraction.
 
 Matrix factorisations create independent working copies, preserving their source matrices.
 
@@ -471,7 +746,15 @@ In particular:
 - QR decomposition uses Householder reflections without column pivoting.
 - Numerical rank and RREF depend on tolerance-based pivot selection.
 - Least-squares solving currently requires full column rank.
+- Tensor contraction and batched matrix multiplication accumulate in `Double` before converting results to `Float`.
+- The precision of reductions depends on their accumulation implementations.
+- Operations on extremely large tensors may require substantial intermediate storage.
+- General tensor contraction and batched multiplication are not yet backed by specialised high-performance numerical kernels.
 - Exact-zero and tolerance-based singularity checks are not substitutes for general condition-number estimation.
+
+Tensor dimensions are currently required to be positive. Empty dimensions and empty tensor slices are not supported.
+
+The current tensor algebra implementations prioritise straightforward, general behaviour over aggressive optimisation.
 
 VeKtors is intended for practical numerical algebra, but it should not yet be treated as a substitute for mature, extensively validated numerical backends in precision-critical applications.
 
@@ -485,6 +768,16 @@ VeKtors includes JUnit tests covering:
 - Strided slicing and mixed `Index`, `Range`, `Slice`, and `All` indexing
 - Axis permutation and slicing after permutation
 - Vector/matrix/tensor conversions
+- Tensor contraction with one or multiple axes
+- Complete contraction and scalar results
+- Outer products and infix operations
+- Batched matrix multiplication
+- Batch broadcasting across singleton and differing batch dimensions
+- General axis-wise mapping and reduction
+- Custom reductions and slice transformations
+- Tensor operations on sliced and permuted views
+- Invalid contraction axes and incompatible dimensions
+- Mutation safety for tensor operation results
 - Matrix factories, trace, determinants, and inverses
 - Direct linear-system solving and multiple right-hand sides
 - LU factorisation, pivoting, and factor reconstruction
@@ -493,7 +786,7 @@ VeKtors includes JUnit tests covering:
 - Least-squares solving and residual properties
 - Matrix norms
 - Numerical reconstruction errors across different matrix scales
-- Mutation safety and reusable factorisation snapshots
+- Reusable factorisation snapshots
 
 Tests are organised into focused classes rather than a single monolithic `TensorTest.kt`.
 
@@ -504,7 +797,15 @@ Numerical accuracy tests check mathematical invariants such as:
 - `QᵀQ ≈ I`
 - `Aᵀ(Ax − b) ≈ 0` for least-squares solutions
 
-These tests provide regression coverage but do not establish numerical stability for every possible input.
+Tensor tests additionally check relationships such as:
+
+- Matrix multiplication through `contract()` agrees with ordinary matrix multiplication.
+- Batched `matmul()` agrees with independently calculated matrix products.
+- Outer products agree with contraction over zero axes.
+- Axis-wise reductions preserve the correct remaining dimensions.
+- Operations on tensor views agree with operations on their corresponding logical values.
+
+These tests provide regression coverage but do not establish numerical stability or performance for every possible input.
 
 ## Roadmap
 
@@ -514,21 +815,24 @@ VeKtors aims to remain a focused numerical algebra library rather than expand in
 
 - Maintain intuitive and consistent vector, matrix, and tensor APIs.
 - Improve numerical correctness and floating-point behaviour.
-- Expand general-purpose tensor operations, particularly tensor contraction and axis-wise operations.
+- Benchmark tensor contraction, batched matrix multiplication, and axis-wise transformations.
+- Reduce unnecessary intermediate allocations in frequently used operations.
 - Improve performance based on measured workloads.
 - Continue documentation, testing, and API refinement.
+- Progress towards a stable public API.
 
 ### Possible future extensions
 
 - Null-space calculations
-- Batched matrix operations
 - Additional orthogonality utilities
 - Eigenvalue and singular-value decompositions where useful
 - Double-precision numerical types
+- Further optimisations for strided tensor operations
+- Additional tensor algebra conveniences when justified by real use cases
 
 These are possibilities rather than commitments.
 
-Numerical integration, differential equation solvers, statistics, optimisation frameworks, and machine learning systems are outside VeKtors' intended core scope.
+Numerical integration, differential equation solvers, statistics, optimisation frameworks, GPU computing, and machine learning systems are outside VeKtors' intended core scope.
 
 The long-term objective is a cohesive, reliable numerical algebra toolkit with a reasonably stable public API.
 
