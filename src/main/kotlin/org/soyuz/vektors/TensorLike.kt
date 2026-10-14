@@ -231,4 +231,104 @@ interface TensorLike {
             }
         }
     }
+
+
+    fun contract(
+        other: TensorLike,
+        axesA: IntArray,
+        axesB: IntArray,
+    ): Tensor {
+        require(axesA.size == axesB.size) {
+            "Both tensors must contract over the same number of axes"
+        }
+
+        require(axesA.all { it in 0 until rank }) {
+            "Invalid contraction axes for tensor of rank $rank"
+        }
+        require(axesB.all { it in 0 until other.rank }) {
+            "Invalid contraction axes for tensor of rank ${other.rank}"
+        }
+
+        require(axesA.toSet().size == axesA.size) {
+            "Contraction axes must not contain duplicates"
+        }
+        require(axesB.toSet().size == axesB.size) {
+            "Contraction axes must not contain duplicates"
+        }
+
+        for (i in axesA.indices) {
+            require(shape[axesA[i]] == other.shape[axesB[i]]) {
+                "Contracted dimensions must match: " +
+                        "${shape[axesA[i]]} != ${other.shape[axesB[i]]}"
+            }
+        }
+
+        val freeA = (0 until rank).filter { it !in axesA }
+        val freeB = (0 until other.rank).filter { it !in axesB }
+
+        val resultShape =
+            freeA.map { shape[it] } +
+                    freeB.map { other.shape[it] }
+
+        val contractedShape = axesA.map { shape[it] }
+
+        fun elementCount(dimensions: List<Int>): Int =
+            dimensions.fold(1) { acc, dimension ->
+                acc * dimension
+            }
+
+        fun decode(index: Int, dimensions: List<Int>): IntArray {
+            var remainder = index
+            val indices = IntArray(dimensions.size)
+
+            for (axis in dimensions.indices.reversed()) {
+                indices[axis] = remainder % dimensions[axis]
+                remainder /= dimensions[axis]
+            }
+
+            return indices
+        }
+
+        val resultSize = elementCount(resultShape)
+        val contractedSize = elementCount(contractedShape)
+
+        val result = FloatArray(resultSize)
+
+        val indicesA = IntArray(rank)
+        val indicesB = IntArray(other.rank)
+
+        for (flatIndex in 0 until resultSize) {
+            val outputIndices = decode(flatIndex, resultShape)
+
+            for (i in freeA.indices) {
+                indicesA[freeA[i]] = outputIndices[i]
+            }
+
+            for (i in freeB.indices) {
+                indicesB[freeB[i]] =
+                    outputIndices[freeA.size + i]
+            }
+
+            var sum = 0.0
+
+            for (contractedIndex in 0 until contractedSize) {
+                val contractedIndices =
+                    decode(contractedIndex, contractedShape)
+
+                for (i in axesA.indices) {
+                    indicesA[axesA[i]] = contractedIndices[i]
+                    indicesB[axesB[i]] = contractedIndices[i]
+                }
+
+                sum +=
+                    valueAt(*indicesA).toDouble() *
+                            other.valueAt(*indicesB).toDouble()
+            }
+
+            result[flatIndex] = sum.toFloat()
+        }
+
+        return Tensor.fromFlat(resultShape, result)
+    }
+
 }

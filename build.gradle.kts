@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "org.soyuz"
-version = "0.4-alpha"
+version = "0.5-alpha"
 
 repositories {
     mavenCentral()
