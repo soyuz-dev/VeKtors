@@ -331,89 +331,108 @@ interface TensorLike {
         return Tensor.fromFlat(resultShape, result)
     }
 
-    fun sum(axis: Int): Tensor =
-        reduceAxis(axis) { indices, length ->
-            var result = 0.0
 
-            for (i in 0 until length) {
-                indices[axis] = i
-                result += valueAt(*indices)
-            }
-
-            result.toFloat()
-        }
-
-    fun mean(axis: Int): Tensor =
-        reduceAxis(axis) { indices, length ->
-            var result = 0.0
-
-            for (i in 0 until length) {
-                indices[axis] = i
-                result += valueAt(*indices)
-            }
-
-            (result / length).toFloat()
-        }
-
-    fun min(axis: Int): Tensor =
-        reduceAxis(axis) { indices, length ->
-            indices[axis] = 0
-            var result = valueAt(*indices)
-
-            for (i in 1 until length) {
-                indices[axis] = i
-                val value = valueAt(*indices)
-
-                if (value < result) {
-                    result = value
-                }
-            }
-
-            result
-        }
-
-    fun max(axis: Int): Tensor =
-        reduceAxis(axis) { indices, length ->
-            indices[axis] = 0
-            var result = valueAt(*indices)
-
-            for (i in 1 until length) {
-                indices[axis] = i
-                val value = valueAt(*indices)
-
-                if (value > result) {
-                    result = value
-                }
-            }
-
-            result
-        }
-
-    private fun reduceAxis(
+    fun mapAxis(
         axis: Int,
-        reduce: (IntArray, Int) -> Float,
+        transform: (TensorLike) -> TensorLike,
     ): Tensor {
         require(axis in 0 until rank) {
             "Axis $axis is out of bounds for tensor of rank $rank"
         }
 
-        val resultShape = shape.filterIndexed { index, _ ->
-            index != axis
+        val outerShape = shape.filterIndexed { i, _ ->
+            i != axis
         }
 
-        return Tensor(resultShape) { outputIndices ->
-            val sourceIndices = IntArray(rank)
+        val sliceCount = outerShape.fold(1) { count, dimension ->
+            count * dimension
+        }
+
+        val transformed = Array(sliceCount) { flatIndex ->
+            val outerIndices = IntArray(outerShape.size)
+            var remainder = flatIndex
+
+            for (i in outerShape.indices.reversed()) {
+                outerIndices[i] = remainder % outerShape[i]
+                remainder /= outerShape[i]
+            }
+
+            val slice = axisSlice(axis, outerIndices)
+            val result = transform(slice)
+
+            require(result.rank == 1 && result.shape[0] == shape[axis]) {
+                "Axis transform must return a rank-one tensor of size ${shape[axis]}"
+            }
+
+            FloatArray(shape[axis]) { result.valueAt(it) }
+        }
+
+        return Tensor(shape) { indices ->
+            var flatIndex = 0
             var outputAxis = 0
 
-            for (sourceAxis in 0 until rank) {
-                if (sourceAxis != axis) {
-                    sourceIndices[sourceAxis] = outputIndices[outputAxis++]
+            for (i in 0 until rank) {
+                if (i != axis) {
+                    flatIndex =
+                        flatIndex * shape[i] + indices[i]
+                    outputAxis++
                 }
             }
 
-            reduce(sourceIndices, shape[axis])
+            transformed[flatIndex][indices[axis]]
         }
     }
+
+    fun reduceAxis(
+        axis: Int,
+        transform: (TensorLike) -> Float,
+    ): Tensor {
+        require(axis in 0 until rank) {
+            "Axis $axis is out of bounds for tensor of rank $rank"
+        }
+
+        val resultShape = shape.filterIndexed { i, _ ->
+            i != axis
+        }
+
+        return Tensor(resultShape) { indices ->
+            transform(axisSlice(axis, indices))
+        }
+    }
+
+    private fun axisSlice(
+        axis: Int,
+        outerIndices: IntArray,
+    ): Tensor {
+        return Tensor(listOf(shape[axis])) { indices ->
+            val sourceIndices = IntArray(rank)
+            var outerAxis = 0
+
+            for (i in 0 until rank) {
+                sourceIndices[i] =
+                    if (i == axis) {
+                        indices[0]
+                    } else {
+                        outerIndices[outerAxis++]
+                    }
+            }
+
+            valueAt(*sourceIndices)
+        }
+    }
+
+    fun sum(axis: Int): Tensor =
+        reduceAxis(axis) { it.sum() }
+
+    fun mean(axis: Int): Tensor =
+        reduceAxis(axis) { it.mean() }
+
+    fun min(axis: Int): Tensor =
+        reduceAxis(axis) { it.min() }
+
+    fun max(axis: Int): Tensor =
+        reduceAxis(axis) { it.max() }
+
 
 
 }
