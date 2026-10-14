@@ -433,6 +433,85 @@ interface TensorLike {
     fun max(axis: Int): Tensor =
         reduceAxis(axis) { it.max() }
 
+    infix fun outer(other: TensorLike): Tensor =
+        contract(other, intArrayOf(), intArrayOf())
+
+    infix fun matmul(other: TensorLike): Tensor {
+        require(rank >= 2 && other.rank >= 2) {
+            "Matrix multiplication requires tensors of rank at least 2"
+        }
+
+        val m = shape[rank - 2]
+        val k = shape[rank - 1]
+        val otherK = other.shape[other.rank - 2]
+        val n = other.shape[other.rank - 1]
+
+        require(k == otherK) {
+            "Matrix multiplication dimensions must match: $k != $otherK"
+        }
+
+        val batchA = shape.dropLast(2)
+        val batchB = other.shape.dropLast(2)
+
+        val batchRank = maxOf(batchA.size, batchB.size)
+
+        val batchShape = List(batchRank) { axis ->
+            val aAxis = axis - (batchRank - batchA.size)
+            val bAxis = axis - (batchRank - batchB.size)
+
+            val a = if (aAxis >= 0) batchA[aAxis] else 1
+            val b = if (bAxis >= 0) batchB[bAxis] else 1
+
+            require(a == b || a == 1 || b == 1) {
+                "Cannot broadcast batch shapes $batchA and $batchB"
+            }
+
+            maxOf(a, b)
+        }
+
+        val resultShape = batchShape + listOf(m, n)
+
+        return Tensor(resultShape) { indices ->
+            val batchIndices = indices.copyOfRange(0, batchRank)
+            val row = indices[batchRank]
+            val column = indices[batchRank + 1]
+
+            val indicesA = IntArray(rank)
+            val indicesB = IntArray(other.rank)
+
+            for (axis in batchA.indices) {
+                val coordinate =
+                    batchIndices[batchRank - batchA.size + axis]
+
+                indicesA[axis] =
+                    if (batchA[axis] == 1) 0 else coordinate
+            }
+
+            for (axis in batchB.indices) {
+                val coordinate =
+                    batchIndices[batchRank - batchB.size + axis]
+
+                indicesB[axis] =
+                    if (batchB[axis] == 1) 0 else coordinate
+            }
+
+            indicesA[rank - 2] = row
+            indicesB[other.rank - 1] = column
+
+            var sum = 0.0
+
+            for (i in 0 until k) {
+                indicesA[rank - 1] = i
+                indicesB[other.rank - 2] = i
+
+                sum +=
+                    valueAt(*indicesA).toDouble() *
+                            other.valueAt(*indicesB).toDouble()
+            }
+
+            sum.toFloat()
+        }
+    }
 
 
 }
